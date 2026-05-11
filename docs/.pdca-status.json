@@ -1,0 +1,284 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-05-11T01:15:33.064Z",
+  "activeFeatures": [
+    "time-based-todolist",
+    "TimeGrid"
+  ],
+  "primaryFeature": "time-based-todolist",
+  "features": {
+    "time-based-todolist": {
+      "phase": "act",
+      "startedAt": "2026-05-11T00:00:00.000Z",
+      "matchRate": null,
+      "iterationCount": 0,
+      "planDoc": "docs/01-plan/features/time-based-todolist.plan.md",
+      "designDoc": "docs/02-design/features/time-based-todolist.design.md",
+      "phaseNumber": 5,
+      "previousPhase": "check",
+      "autoAdvanced": true,
+      "timestamps": {
+        "lastUpdated": "2026-05-11T01:04:58.089Z"
+      }
+    },
+    "db": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-11T00:56:19.996Z",
+        "lastUpdated": "2026-05-11T00:59:16.295Z"
+      },
+      "lastFile": "C:\\repo\\time_based_todolist\\server\\db\\database.js"
+    },
+    "routes": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-11T00:56:24.909Z",
+        "lastUpdated": "2026-05-11T00:56:34.690Z"
+      },
+      "lastFile": "C:\\repo\\time_based_todolist\\server\\routes\\schedules.js"
+    },
+    "server": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-11T00:56:41.671Z",
+        "lastUpdated": "2026-05-11T00:56:41.671Z"
+      },
+      "lastFile": "C:\\repo\\time_based_todolist\\server\\index.js"
+    },
+    "client": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-11T00:56:45.709Z",
+        "lastUpdated": "2026-05-11T00:58:08.961Z"
+      },
+      "lastFile": "C:\\repo\\time_based_todolist\\client\\src\\App.jsx"
+    },
+    "api": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-11T00:56:57.962Z",
+        "lastUpdated": "2026-05-11T00:57:01.538Z"
+      },
+      "lastFile": "C:\\repo\\time_based_todolist\\client\\src\\api\\schedules.js"
+    },
+    "TaskBacklog": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-11T00:57:20.939Z",
+        "lastUpdated": "2026-05-11T00:57:27.387Z"
+      },
+      "lastFile": "C:\\repo\\time_based_todolist\\client\\src\\components\\TaskBacklog\\TaskBacklog.jsx"
+    },
+    "TimeGrid": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-11T00:57:31.077Z",
+        "lastUpdated": "2026-05-11T01:15:33.064Z"
+      },
+      "lastFile": "C:\\repo\\time_based_todolist\\client\\src\\components\\TimeGrid\\TimeGrid.jsx"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 2,
+    "level": "Dynamic",
+    "phaseHistory": [
+      "plan"
+    ]
+  },
+  "session": {
+    "startedAt": "2026-05-11T00:00:00.000Z",
+    "onboardingCompleted": true,
+    "lastActivity": "2026-05-11T01:15:33.064Z"
+  },
+  "history": [
+    {
+      "event": "plan_created",
+      "feature": "time-based-todolist",
+      "timestamp": "2026-05-11T00:00:00.000Z"
+    },
+    {
+      "event": "design_created",
+      "feature": "time-based-todolist",
+      "timestamp": "2026-05-11T01:00:00.000Z"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:19.996Z",
+      "feature": "db",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:24.909Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:34.690Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:41.671Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:45.709Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:50.460Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:50.817Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:54.345Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:56:57.962Z",
+      "feature": "api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:01.538Z",
+      "feature": "api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:06.499Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:10.950Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:13.712Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:20.939Z",
+      "feature": "TaskBacklog",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:27.387Z",
+      "feature": "TaskBacklog",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:31.077Z",
+      "feature": "TimeGrid",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:41.161Z",
+      "feature": "TimeGrid",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:57:52.695Z",
+      "feature": "TimeGrid",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:58:08.961Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T00:59:16.295Z",
+      "feature": "db",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T01:04:58.090Z",
+      "feature": "time-based-todolist",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T01:07:14.371Z",
+      "feature": "TimeGrid",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T01:09:27.195Z",
+      "feature": "TimeGrid",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-11T01:15:33.064Z",
+      "feature": "TimeGrid",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
+}
