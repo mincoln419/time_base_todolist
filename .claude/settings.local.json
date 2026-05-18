@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Skill(bkit:pdca)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s http://localhost:3001/api/schedules?date=2026-05-11)",
+      "Bash(node *)",
+      "Bash(curl *)",
+      "Bash(taskkill /PID 4080 /F)",
+      "PowerShell(Stop-Process *)"
     ]
   }
 }

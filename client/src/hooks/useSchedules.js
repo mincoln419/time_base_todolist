@@ -11,8 +11,8 @@ export function useSchedules(date) {
 
   useEffect(() => { load(); }, [load]);
 
-  const addSchedule = useCallback(async ({ task_id, start_hour, end_hour }) => {
-    const s = await createSchedule({ task_id, date, start_hour, end_hour });
+  const addSchedule = useCallback(async ({ title, start_hour, end_hour }) => {
+    const s = await createSchedule({ title, date, start_hour, end_hour });
     setSchedules((prev) => [...prev, s].sort((a, b) => a.start_hour - b.start_hour));
     return s;
   }, [date]);

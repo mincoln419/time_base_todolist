@@ -3,26 +3,20 @@ const db = require('../db/database');
 
 const router = express.Router();
 
-const withTitle = `
-  SELECT s.*, t.title
-  FROM schedules s
-  JOIN tasks t ON t.id = s.task_id
-`;
-
 // GET /api/schedules?date=YYYY-MM-DD
 router.get('/', (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: 'date 파라미터가 필요합니다.' });
 
-  const rows = db.prepare(`${withTitle} WHERE s.date = ? ORDER BY s.start_hour ASC`).all(date);
+  const rows = db.prepare('SELECT * FROM schedules WHERE date = ? ORDER BY start_hour ASC').all(date);
   res.json(rows);
 });
 
 // POST /api/schedules — DnD 드롭 시 스케줄 생성
 router.post('/', (req, res) => {
-  const { task_id, date, start_hour, end_hour } = req.body;
+  const { title, date, start_hour, end_hour } = req.body;
 
-  if (!task_id || !date || start_hour == null || end_hour == null) {
+  if (!title || !title.trim() || !date || start_hour == null || end_hour == null) {
     return res.status(400).json({ error: '필수 필드가 누락되었습니다.' });
   }
   if (end_hour <= start_hour) {
@@ -31,10 +25,10 @@ router.post('/', (req, res) => {
 
   try {
     const result = db
-      .prepare('INSERT INTO schedules (task_id, date, start_hour, end_hour) VALUES (?, ?, ?, ?)')
-      .run(task_id, date, start_hour, end_hour);
+      .prepare('INSERT INTO schedules (title, date, start_hour, end_hour) VALUES (?, ?, ?, ?)')
+      .run(title.trim(), date, start_hour, end_hour);
 
-    const row = db.prepare(`${withTitle} WHERE s.id = ?`).get(result.lastInsertRowid);
+    const row = db.prepare('SELECT * FROM schedules WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(row);
   } catch (e) {
     if (e.message.includes('UNIQUE')) {
@@ -59,11 +53,10 @@ router.put('/:id', (req, res) => {
   db.prepare('UPDATE schedules SET status = ?, start_hour = ?, end_hour = ? WHERE id = ?')
     .run(newStatus, newStart, newEnd, id);
 
-  const row = db.prepare(`${withTitle} WHERE s.id = ?`).get(id);
-  res.json(row);
+  res.json(db.prepare('SELECT * FROM schedules WHERE id = ?').get(id));
 });
 
-// DELETE /api/schedules/:id — 스케줄 삭제 (백로그 복귀)
+// DELETE /api/schedules/:id
 router.delete('/:id', (req, res) => {
   const result = db.prepare('DELETE FROM schedules WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: '찾을 수 없습니다.' });
