@@ -1,4 +1,4 @@
--- 할일 백로그
+-- 할일 백로그 (템플릿 목록)
 CREATE TABLE IF NOT EXISTS tasks (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   title      TEXT    NOT NULL,
@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
--- 시간 블록 (날짜 + 시간에 배치된 할일)
+-- 시간 블록 (백로그와 독립적인 일정 데이터)
 CREATE TABLE IF NOT EXISTS schedules (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  title      TEXT    NOT NULL,
   date       TEXT    NOT NULL,
   start_hour INTEGER NOT NULL CHECK (start_hour >= 0 AND start_hour <= 23),
   end_hour   INTEGER NOT NULL CHECK (end_hour > start_hour AND end_hour <= 24),

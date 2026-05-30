@@ -3,6 +3,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@
 import DateNavigator from './components/DateNavigator';
 import TaskBacklog from './components/TaskBacklog/TaskBacklog';
 import TimeGrid from './components/TimeGrid/TimeGrid';
+import DayTimeline from './components/DayTimeline';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
 
@@ -33,7 +34,7 @@ export default function App() {
       const startHour = dst.type === 'slot' ? dst.hour : schedules.find((s) => s.id === dst.blockId)?.start_hour;
       if (startHour == null) return;
       try {
-        await addSchedule({ task_id: src.taskId, start_hour: startHour, end_hour: startHour + 1 });
+        await addSchedule({ title: src.title, start_hour: startHour, end_hour: startHour + 1 });
       } catch (e) {
         alert(e.message);
       }
@@ -45,14 +46,13 @@ export default function App() {
     }
   };
 
-  // 수기 시간 블록 추가 (DnD 없이)
+  // 수기 시간 블록 추가 (DnD 없이) — 첫 번째 미배치 할일 제목으로 생성
   const handleAddBlock = async (startHour) => {
     if (tasks.length === 0) { alert('먼저 할 일을 추가해주세요.'); return; }
-    // 첫 번째 미배치 할일 자동 선택 (UX 단순화)
-    const scheduledTaskIds = new Set(schedules.map((s) => s.task_id));
-    const target = tasks.find((t) => !scheduledTaskIds.has(t.id)) ?? tasks[0];
+    const scheduledTitles = new Set(schedules.map((s) => s.title));
+    const target = tasks.find((t) => !scheduledTitles.has(t.title)) ?? tasks[0];
     try {
-      await addSchedule({ task_id: target.id, start_hour: startHour, end_hour: startHour + 1 });
+      await addSchedule({ title: target.title, start_hour: startHour, end_hour: startHour + 1 });
     } catch (e) {
       alert(e.message);
     }
@@ -60,16 +60,28 @@ export default function App() {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="h-screen flex flex-col bg-gray-50">
-        <DateNavigator date={date} onChange={setDate} />
-        <TaskBacklog tasks={tasks} onAdd={addTask} onDelete={removeTask} />
-        <TimeGrid
-          schedules={schedules}
-          onStatusChange={changeStatus}
-          onTimeChange={changeTime}
-          onRemove={removeSchedule}
-          onAddBlock={handleAddBlock}
-        />
+      <div className="h-screen flex bg-gray-50 overflow-hidden">
+        {/* 좌측 절반 — 기존 컨트롤 패널 */}
+        <div className="w-1/2 flex flex-col min-h-0">
+          <DateNavigator date={date} onChange={setDate} />
+          <TaskBacklog
+            tasks={tasks}
+            onAdd={addTask}
+            onDelete={async (id) => { await removeTask(id); }}
+          />
+          <TimeGrid
+            schedules={schedules}
+            onStatusChange={changeStatus}
+            onTimeChange={changeTime}
+            onRemove={removeSchedule}
+            onAddBlock={handleAddBlock}
+          />
+        </div>
+
+        {/* 우측 절반 — 24시간 타임라인 시각화 */}
+        <div className="w-1/2 flex flex-col min-h-0">
+          <DayTimeline schedules={schedules} date={date} />
+        </div>
       </div>
 
       <DragOverlay>
