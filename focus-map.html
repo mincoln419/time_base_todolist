@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>포커스 맵 — 두 번 인쇄하기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E9E9E2;
+  --paper-2:#F3F3EE;
+  --ink:#22201E;
+  --ink-60:rgba(34,32,30,.6);
+  --ink-30:rgba(34,32,30,.28);
+  --ink-12:rgba(34,32,30,.12);
+  --pink:#FF4F9A;
+  --blue:#0F6FC6;
+  --over:#7A3FB0;
+  --rule:1.5px solid var(--ink);
+  --pad:clamp(18px,4vw,40px);
+  --accent:var(--ink);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  font-size:16px;line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(var(--ink-12) .5px,transparent .5px);
+  background-size:3px 3px;opacity:.55;
+}
+.wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:var(--pad) var(--pad) 96px}
+
+/* ---------- 상단 ---------- */
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-60);display:flex;gap:10px;align-items:center;flex-wrap:wrap
+}
+.eyebrow b{color:var(--accent);font-weight:600}
+h1{
+  font-family:"Black Han Sans","IBM Plex Sans KR",sans-serif;font-weight:400;
+  font-size:clamp(40px,10vw,86px);line-height:.94;letter-spacing:-.01em;
+  margin:18px 0 0;position:relative;display:inline-block;
+}
+h1 .ghost{
+  position:absolute;inset:0;color:var(--pink);transform:translate(4px,-4px);
+  z-index:-1;opacity:.85;
+}
+.lede{max-width:46ch;margin:18px 0 0;color:var(--ink-60);font-size:clamp(15px,2.2vw,17px)}
+.hr{height:0;border-top:var(--rule);margin:26px 0}
+
+/* ---------- 잉크 진행 레일 ---------- */
+.rail{display:flex;gap:0;margin:0 0 26px;border:var(--rule);background:var(--paper-2)}
+.rail div{
+  flex:1;padding:9px 8px;font-family:"IBM Plex Mono",monospace;font-size:11px;
+  letter-spacing:.08em;text-align:center;color:var(--ink-30);border-right:var(--rule);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.rail div:last-child{border-right:0}
+.rail div.on{background:var(--accent);color:var(--paper-2)}
+.rail div.done{color:var(--ink)}
+
+/* ---------- 카드 / 폼 ---------- */
+.panel{border:var(--rule);background:var(--paper-2);padding:clamp(16px,3.5vw,28px)}
+label.field{display:block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.14em;color:var(--ink-60);margin-bottom:8px}
+input[type=text]{
+  width:100%;font:inherit;font-size:17px;padding:12px 14px;background:var(--paper);
+  border:var(--rule);color:var(--ink);border-radius:0;
+}
+input[type=text]:focus{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row input{flex:1;min-width:180px}
+button{font:inherit;cursor:pointer;border-radius:0}
+.btn{
+  border:var(--rule);background:var(--accent);color:var(--paper-2);
+  padding:12px 20px;font-weight:600;letter-spacing:.02em;
+}
+.btn:disabled{background:var(--paper);color:var(--ink-30);cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn:focus-visible,.chip button:focus-visible,.scale button:focus-visible{outline:3px solid var(--over);outline-offset:2px}
+
+/* ---------- 행동 목록 ---------- */
+ul.list{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:0;border-top:var(--rule)}
+ul.list li{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--ink-12)}
+ul.list .no{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-30);width:22px;flex:none}
+ul.list .txt{flex:1}
+ul.list button{border:0;background:transparent;color:var(--ink-30);padding:6px;font-size:14px}
+ul.list button:hover{color:var(--pink)}
+.empty{margin:22px 0 0;padding:20px;border:1.5px dashed var(--ink-30);color:var(--ink-60);font-size:15px}
+
+/* ---------- 평가 화면 ---------- */
+.pass-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.pass-num{font-family:"Black Han Sans",sans-serif;font-size:clamp(34px,8vw,58px);line-height:1;color:var(--accent)}
+.pass-title{font-size:clamp(18px,3.4vw,24px);font-weight:700}
+.pass-note{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-60);border-left:3px solid var(--accent);padding-left:10px;margin:14px 0 24px}
+.counter{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-60);margin-left:auto}
+.subject{
+  font-size:clamp(22px,5vw,34px);font-weight:700;line-height:1.3;margin:0 0 22px;
+  padding:22px;border:var(--rule);background:var(--paper);
+  box-shadow:6px 6px 0 var(--accent);
+}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.scale button{
+  border:var(--rule);background:var(--paper-2);color:var(--ink);
+  padding:14px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  transition:transform .12s ease, background .12s ease, color .12s ease;
+}
+.scale button b{font-family:"IBM Plex Mono",monospace;font-size:19px;font-weight:600}
+.scale button span{font-size:11px;line-height:1.25;text-align:center;color:var(--ink-60)}
+.scale button:hover{background:var(--accent);color:var(--paper-2);transform:translateY(-3px)}
+.scale button:hover span{color:var(--paper-2)}
+.nav{display:flex;gap:10px;margin-top:22px;align-items:center;flex-wrap:wrap}
+.hint{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-30)}
+
+/* ---------- 결과 지도 ---------- */
+.map-frame{margin-top:8px;display:grid;grid-template-columns:26px 1fr;grid-template-rows:1fr 26px;gap:6px}
+.y-ax,.x-ax{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.14em;color:var(--ink-60);display:flex;align-items:center;justify-content:center}
+.y-ax{writing-mode:vertical-rl;transform:rotate(180deg)}
+.x-ax{grid-column:2}
+.map{position:relative;aspect-ratio:1/1;border:var(--rule);background:var(--paper-2);overflow:hidden}
+.band{position:absolute;mix-blend-mode:multiply;pointer-events:none}
+.band.impact{left:0;right:0;top:0;height:50%;background:rgba(255,79,154,.22)}
+.band.ability{top:0;bottom:0;right:0;width:50%;background:rgba(15,111,198,.20)}
+.grid-l{position:absolute;background:var(--ink-12);pointer-events:none}
+.zone{
+  position:absolute;top:0;right:0;width:50%;height:50%;
+  display:flex;align-items:flex-start;justify-content:flex-end;padding:8px;
+  font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;color:var(--over);
+  pointer-events:none;
+}
+.dot{
+  position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;
+  border:var(--rule);background:var(--paper-2);display:flex;align-items:center;justify-content:center;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;
+  transition:left .7s cubic-bezier(.22,1,.36,1),top .7s cubic-bezier(.22,1,.36,1),transform .15s ease;
+  cursor:default;
+}
+.dot.gold{background:var(--over);color:var(--paper-2);border-color:var(--over);box-shadow:0 0 0 5px rgba(122,63,176,.18)}
+.dot:hover{transform:scale(1.25);z-index:5}
+.corner{position:absolute;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-30);padding:7px;pointer-events:none}
+
+/* ---------- 결과 표 ---------- */
+table{width:100%;border-collapse:collapse;margin-top:30px;font-size:14px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--ink-12);vertical-align:top}
+th{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-60);border-bottom:var(--rule);font-weight:400}
+td.n{font-family:"IBM Plex Mono",monospace;color:var(--ink-30);width:26px}
+td.sc{font-family:"IBM Plex Mono",monospace;white-space:nowrap;width:74px}
+.tag{display:inline-block;padding:2px 9px;border:1.5px solid currentColor;font-size:11px;font-weight:600;white-space:nowrap}
+.t-gold{color:var(--over)}
+.t-cut{color:var(--pink)}
+.t-hold{color:var(--blue)}
+.t-drop{color:var(--ink-30)}
+.verdict{margin:30px 0 0;padding:22px;border:var(--rule);background:var(--over);color:var(--paper-2)}
+.verdict h3{margin:0 0 8px;font-size:13px;font-family:"IBM Plex Mono",monospace;letter-spacing:.14em;font-weight:400;opacity:.8}
+.verdict p{margin:0;font-size:clamp(17px,3.6vw,22px);font-weight:700;line-height:1.45}
+.verdict small{display:block;margin-top:12px;font-weight:400;font-size:13px;opacity:.85;line-height:1.6}
+
+footer{margin-top:56px;padding-top:18px;border-top:var(--rule);font-size:12px;color:var(--ink-60)}
+footer code{font-family:"IBM Plex Mono",monospace}
+.status{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-30);margin-top:14px;min-height:16px}
+.hidden{display:none !important}
+
+@media (max-width:560px){
+  .scale{grid-template-columns:repeat(5,1fr);gap:5px}
+  .scale button{padding:11px 2px 9px}
+  .scale button span{font-size:9px}
+  .rail div{font-size:9px;letter-spacing:.02em;padding:8px 3px}
+  .dot{width:26px;height:26px;margin:-13px 0 0 -13px;font-size:11px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow"><span>BJ 포그 · 행동 설계</span><span>/</span><b id="inkLabel">2단계 필터</b></div>
+  <h1><span class="ghost" aria-hidden="true">포커스 맵</span>포커스 맵</h1>
+  <p class="lede">영향력과 실행 가능성을 한꺼번에 재면 좋은 행동이 먼저 탈락한다. 여기서는 두 판을 따로 찍고, 마지막에 겹쳐 본다.</p>
+  <div class="hr"></div>
+
+  <div class="rail" id="rail">
+    <div data-s="0">행동 모으기</div>
+    <div data-s="1">1판 · 영향력</div>
+    <div data-s="2">2판 · 능력</div>
+    <div data-s="3">겹쳐 보기</div>
+  </div>
+
+  <!-- STEP 0 -->
+  <section id="s0" class="panel">
+    <label class="field" for="goal">목표</label>
+    <input type="text" id="goal" placeholder="예: 스트레스 줄이기, 매일 책 읽기" autocomplete="off">
+
+    <div style="height:22px"></div>
+    <label class="field" for="beh">목표에 도움이 될 만한 행동 (효과 여부는 아직 따지지 않는다)</label>
+    <div class="row">
+      <input type="text" id="beh" placeholder="행동 하나를 적고 Enter" autocomplete="off">
+      <button class="btn" id="addBeh">추가</button>
+    </div>
+
+    <div id="listWrap"></div>
+
+    <div class="nav">
+      <button class="btn" id="toStep1" disabled>영향력부터 매기기</button>
+      <button class="btn ghost" id="seed">예시로 채우기</button>
+      <span class="hint" id="cnt">0개</span>
+    </div>
+    <div class="status" id="status0"></div>
+  </section>
+
+  <!-- STEP 1 / 2 -->
+  <section id="sRate" class="panel hidden">
+    <div class="pass-head">
+      <span class="pass-num" id="passNum">1</span>
+      <span class="pass-title" id="passTitle"></span>
+      <span class="counter" id="passCount"></span>
+    </div>
+    <p class="pass-note" id="passNote"></p>
+    <div class="subject" id="subject"></div>
+    <div class="scale" id="scale"></div>
+    <div class="nav">
+      <button class="btn ghost" id="back">이전</button>
+      <span class="hint">키보드 1–5 로도 고를 수 있다</span>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section id="s3" class="hidden">
+    <div class="pass-head">
+      <span class="pass-num">3</span>
+      <span class="pass-title" id="resTitle">두 판을 겹친 결과</span>
+    </div>
+    <p class="pass-note">분홍은 영향력, 파랑은 능력. 두 잉크가 겹친 자리에 있는 행동이 지금 습관으로 만들 행동이다.</p>
+
+    <div class="map-frame">
+      <div class="y-ax">영향력 →</div>
+      <div class="map" id="map">
+        <div class="band impact"></div>
+        <div class="band ability"></div>
+        <div class="zone">황금 행동</div>
+        <div class="corner" style="left:0;bottom:0">버리기</div>
+        <div class="corner" style="right:0;bottom:0">보류</div>
+        <div class="corner" style="left:0;top:0">쪼개기</div>
+      </div>
+      <div></div>
+      <div class="x-ax">능력 →</div>
+    </div>
+
+    <div id="verdictWrap"></div>
+    <div id="tableWrap"></div>
+
+    <div class="nav">
+      <button class="btn ghost" id="redo">다시 매기기</button>
+      <button class="btn ghost" id="reset">처음부터</button>
+    </div>
+    <div class="status" id="status3"></div>
+  </section>
+
+  <footer>
+    포커스 매핑(Focus Mapping)은 BJ Fogg, <em>Tiny Habits</em> (2020) 2장 행동 설계 단계의 도구다.
+    <code>영향력 필터 → 능력 필터</code> 순서로 적용하는 것이 핵심.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var IMPACT = [
+    {v:1,l:"거의 없음"},{v:2,l:"약간"},{v:3,l:"보통"},{v:4,l:"큼"},{v:5,l:"매우 큼"}
+  ];
+  var ABILITY = [
+    {v:1,l:"못 한다"},{v:2,l:"어렵다"},{v:3,l:"보통"},{v:4,l:"쉽다"},{v:5,l:"아주 쉽다"}
+  ];
+  var SEED = ["매일 100페이지 읽기","매일 30분 읽기","잠들기 전 1페이지 읽기","읽은 책 서평 쓰기","출퇴근길 오디오북 듣기"];
+  var KEY = "focusmap:session";
+
+  var state = {goal:"", items:[], step:0, cursor:0};
+  var $ = function(id){return document.getElementById(id);};
+
+  /* ---------- 저장 ---------- */
+  function save(){
+    try{
+      if(!window.storage) return;
+      window.storage.set(KEY, JSON.stringify(state)).catch(function(){});
+    }catch(e){}
+  }
+  function load(){
+    try{
+      if(!window.storage){ render(); return; }
+      window.storage.get(KEY).then(function(r){
+        if(r && r.value){
+          var s = JSON.parse(r.value);
+          if(s && Array.isArray(s.items)){ state = s; }
+        }
+        render();
+      }).catch(function(){ render(); });
+    }catch(e){ render(); }
+  }
+
+  /* ---------- 도우미 ---------- */
+  function uid(){ return "b"+Math.random().toString(36).slice(2,8); }
+  function jitter(id){
+    var h=0; for(var i=0;i<id.length;i++){h=(h*31+id.charCodeAt(i))%1000;}
+    return {x:(h%7)-3, y:(Math.floor(h/7)%7)-3};
+  }
+  function verdictOf(it){
+    var hi = it.impact>=4, ha = it.ability>=4;
+    if(hi&&ha) return {k:"gold",  t:"황금 행동", c:"t-gold", d:"오늘 바로 시작한다"};
+    if(hi&&!ha) return {k:"cut",  t:"쪼개기",   c:"t-cut",  d:"효과는 크지만 지금은 무겁다. 더 작게 잘라서 다시 넣는다"};
+    if(!hi&&ha) return {k:"hold", t:"보류",     c:"t-hold", d:"쉬워서 계속하기 좋다. 황금 행동이 없을 때 예비로 쓴다"};
+    return {k:"drop", t:"버리기", c:"t-drop", d:"목록에서 뺀다"};
+  }
+
+  /* ---------- 렌더 ---------- */
+  function render(){
+    $("goal").value = state.goal;
+    var rail = $("rail").children;
+    for(var i=0;i<rail.length;i++){
+      rail[i].className = (i===state.step?"on":(i<state.step?"done":""));
+    }
+    $("s0").classList.toggle("hidden", state.step!==0);
+    $("sRate").classList.toggle("hidden", state.step!==1 && state.step!==2);
+    $("s3").classList.toggle("hidden", state.step!==3);
+
+    document.documentElement.style.setProperty("--accent",
+      state.step===1 ? "var(--pink)" : state.step===2 ? "var(--blue)" : state.step===3 ? "var(--over)" : "var(--ink)");
+    $("inkLabel").textContent =
+      state.step===1 ? "1판 · 영향력만" : state.step===2 ? "2판 · 능력만" : state.step===3 ? "겹쳐 보기" : "2단계 필터";
+
+    if(state.step===0) renderList();
+    if(state.step===1||state.step===2) renderRate();
+    if(state.step===3) renderResult();
+  }
+
+  function renderList(){
+    var w = $("listWrap");
+    if(!state.items.length){
+      w.innerHTML = '<div class="empty">행동을 3개 이상 모아 보자. 지금은 좋은 행동인지 판단하지 않는다. 떠오르는 대로 적는 단계다.</div>';
+    }else{
+      var h = '<ul class="list">';
+      state.items.forEach(function(it,i){
+        h += '<li><span class="no">'+String(i+1).padStart(2,"0")+'</span><span class="txt"></span>'+
+             '<button data-del="'+it.id+'" aria-label="삭제">지우기</button></li>';
+      });
+      w.innerHTML = h+"</ul>";
+      var txts = w.querySelectorAll(".txt");
+      state.items.forEach(function(it,i){ txts[i].textContent = it.text; });
+      w.querySelectorAll("[data-del]").forEach(function(b){
+        b.onclick = function(){
+          state.items = state.items.filter(function(x){return x.id!==b.dataset.del;});
+          save(); render();
+        };
+      });
+    }
+    $("cnt").textContent = state.items.length+"개";
+    $("toStep1").disabled = state.items.length < 2;
+  }
+
+  function renderRate(){
+    var isImpact = state.step===1;
+    var opts = isImpact ? IMPACT : ABILITY;
+    var it = state.items[state.cursor];
+    if(!it){ nextPass(); return; }
+
+    $("passNum").textContent = isImpact ? "1" : "2";
+    $("passTitle").textContent = isImpact ? "이 행동은 목표를 얼마나 바꾸는가" : "지금 당장 할 수 있는가";
+    $("passNote").textContent = isImpact
+      ? "시간·의지·현실은 지금 계산에서 뺀다. 효과만 본다."
+      : "효과는 잊는다. 오늘 저녁에 실제로 할 수 있는지만 본다. 1판 점수는 일부러 가려 두었다.";
+    $("passCount").textContent = (state.cursor+1)+" / "+state.items.length;
+    $("subject").textContent = it.text;
+
+    var sc = $("scale"); sc.innerHTML = "";
+    opts.forEach(function(o){
+      var b = document.createElement("button");
+      b.innerHTML = "<b>"+o.v+"</b><span></span>";
+      b.querySelector("span").textContent = o.l;
+      b.onclick = function(){ pick(o.v); };
+      sc.appendChild(b);
+    });
+    $("back").textContent = state.cursor===0 && state.step===1 ? "행동 목록으로" : "이전";
+  }
+
+  function pick(v){
+    var it = state.items[state.cursor];
+    if(state.step===1) it.impact = v; else it.ability = v;
+    state.cursor++;
+    if(state.cursor >= state.items.length) nextPass(); else render();
+    save();
+  }
+  function nextPass(){
+    state.cursor = 0;
+    state.step = state.step===1 ? 2 : 3;
+    save(); render();
+  }
+
+  function renderResult(){
+    var map = $("map");
+    map.querySelectorAll(".dot,.grid-l").forEach(function(n){n.remove();});
+    [25,50,75].forEach(function(p){
+      var a=document.createElement("div"); a.className="grid-l";
+      a.style.cssText="left:0;right:0;top:"+p+"%;height:1px"; map.appendChild(a);
+      var b=document.createElement("div"); b.className="grid-l";
+      b.style.cssText="top:0;bottom:0;left:"+p+"%;width:1px"; map.appendChild(b);
+    });
+
+    state.items.forEach(function(it,i){
+      var j = jitter(it.id);
+      var d = document.createElement("div");
+      d.className = "dot" + (verdictOf(it).k==="gold" ? " gold" : "");
+      d.textContent = i+1;
+      d.title = it.text;
+      d.style.left = (10 + (it.ability-1)/4*80) + "%";
+      d.style.top  = (90 - (it.impact-1)/4*80) + "%";
+      d.style.marginLeft = (-15+j.x)+"px";
+      d.style.marginTop  = (-15+j.y)+"px";
+      map.appendChild(d);
+    });
+
+    var sorted = state.items.slice().map(function(it,i){return {it:it,i:i};})
+      .sort(function(a,b){
+        var order={gold:0,cut:1,hold:2,drop:3};
+        var d = order[verdictOf(a.it).k]-order[verdictOf(b.it).k];
+        return d!==0 ? d : (b.it.impact+b.it.ability)-(a.it.impact+a.it.ability);
+      });
+
+    var h = '<table><thead><tr><th></th><th>행동</th><th>영향</th><th>능력</th><th>판정</th></tr></thead><tbody>';
+    sorted.forEach(function(o){
+      var v = verdictOf(o.it);
+      h += '<tr><td class="n">'+String(o.i+1).padStart(2,"0")+'</td>'+
+           '<td class="beh"></td>'+
+           '<td class="sc">'+"■".repeat(o.it.impact)+'</td>'+
+           '<td class="sc">'+"■".repeat(o.it.ability)+'</td>'+
+           '<td><span class="tag '+v.c+'">'+v.t+'</span></td></tr>';
+    });
+    h += "</tbody></table>";
+    $("tableWrap").innerHTML = h;
+    var cells = $("tableWrap").querySelectorAll(".beh");
+    sorted.forEach(function(o,k){ cells[k].textContent = o.it.text; });
+
+    var golds = state.items.filter(function(it){return verdictOf(it).k==="gold";});
+    var cuts  = state.items.filter(function(it){return verdictOf(it).k==="cut";});
+    var vw = $("verdictWrap"), goalTxt = state.goal ? state.goal : "이 목표";
+    if(golds.length){
+      vw.innerHTML = '<div class="verdict"><h3>지금 시작할 행동</h3><p></p>'+
+        '<small>영향력이 조금 낮아도 매일 되는 행동이 이긴다. 지속이 쌓이면 총효과가 커진다.</small></div>';
+      vw.querySelector("p").textContent = golds.map(function(g){return g.text;}).join(" · ");
+    }else{
+      vw.innerHTML = '<div class="verdict"><h3>겹치는 자리가 비었다</h3><p>효과와 실행 가능성이 함께 높은 행동이 아직 없다.</p>'+
+        '<small></small></div>';
+      vw.querySelector("small").textContent = cuts.length
+        ? "\u300c"+cuts[0].text+"\u300d처럼 효과 큰 행동을 더 작게 잘라 목록에 다시 넣어 보자. 30분이 아니라 2분짜리로."
+        : "효과가 큰 행동을 몇 개 더 적어 보자. 지금 목록은 전부 가볍기만 하다.";
+    }
+    $("resTitle").textContent = state.goal ? state.goal : "두 판을 겹친 결과";
+  }
+
+  /* ---------- 이벤트 ---------- */
+  $("goal").oninput = function(){ state.goal = this.value; save(); };
+
+  function addBeh(){
+    var v = $("beh").value.trim();
+    if(!v) return;
+    if(state.items.length >= 12){ $("status0").textContent = "12개면 충분하다. 더 늘리면 판단이 흐려진다."; return; }
+    state.items.push({id:uid(), text:v, impact:null, ability:null});
+    $("beh").value = ""; $("status0").textContent = "";
+    save(); render(); $("beh").focus();
+  }
+  $("addBeh").onclick = addBeh;
+  $("beh").onkeydown = function(e){ if(e.key==="Enter"){ e.preventDefault(); addBeh(); } };
+
+  $("seed").onclick = function(){
+    if(!state.goal){ state.goal = "매일 책 읽기"; $("goal").value = state.goal; }
+    SEED.forEach(function(t){
+      if(!state.items.some(function(x){return x.text===t;})) state.items.push({id:uid(),text:t,impact:null,ability:null});
+    });
+    save(); render();
+  };
+
+  $("toStep1").onclick = function(){
+    state.items.forEach(function(it){ it.impact=null; it.ability=null; });
+    state.step = 1; state.cursor = 0; save(); render();
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+
+  $("back").onclick = function(){
+    if(state.cursor>0){ state.cursor--; }
+    else if(state.step===2){ state.step=1; state.cursor=state.items.length-1; }
+    else { state.step=0; }
+    save(); render();
+  };
+
+  $("redo").onclick = function(){
+    state.items.forEach(function(it){ it.impact=null; it.ability=null; });
+    state.step=1; state.cursor=0; save(); render();
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+
+  $("reset").onclick = function(){
+    state = {goal:"", items:[], step:0, cursor:0};
+    try{ if(window.storage) window.storage.delete(KEY).catch(function(){}); }catch(e){}
+    render();
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+
+  document.addEventListener("keydown", function(e){
+    if(state.step!==1 && state.step!==2) return;
+    if(document.activeElement && document.activeElement.tagName==="INPUT") return;
+    var n = parseInt(e.key,10);
+    if(n>=1 && n<=5){ pick(n); }
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

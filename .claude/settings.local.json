@@ -8,7 +8,12 @@
       "Bash(node *)",
       "Bash(curl *)",
       "Bash(taskkill /PID 4080 /F)",
-      "PowerShell(Stop-Process *)"
+      "PowerShell(Stop-Process *)",
+      "Bash(netstat -ano)",
+      "Bash(npx vite *)",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 193940 -Force\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 199152 -Force\")"
     ]
   }
 }

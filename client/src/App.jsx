@@ -4,14 +4,21 @@ import DateNavigator from './components/DateNavigator';
 import TaskBacklog from './components/TaskBacklog/TaskBacklog';
 import TimeGrid from './components/TimeGrid/TimeGrid';
 import DayTimeline from './components/DayTimeline';
+import FocusMap from './components/FocusMap/FocusMap';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
+
+const TABS = [
+  { id: 'schedule', label: '일정관리' },
+  { id: 'focusmap', label: '포커스 맵' },
+];
 
 function toDateString(d) {
   return d.toISOString().slice(0, 10);
 }
 
 export default function App() {
+  const [tab, setTab] = useState('schedule');
   const [date, setDate] = useState(toDateString(new Date()));
   const [activeItem, setActiveItem] = useState(null); // DragOverlay용
 
@@ -59,38 +66,65 @@ export default function App() {
   };
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="h-screen flex bg-gray-50 overflow-hidden">
-        {/* 좌측 절반 — 기존 컨트롤 패널 */}
-        <div className="w-1/2 flex flex-col min-h-0">
-          <DateNavigator date={date} onChange={setDate} />
-          <TaskBacklog
-            tasks={tasks}
-            onAdd={addTask}
-            onDelete={async (id) => { await removeTask(id); }}
-          />
-          <TimeGrid
-            schedules={schedules}
-            onStatusChange={changeStatus}
-            onTimeChange={changeTime}
-            onRemove={removeSchedule}
-            onAddBlock={handleAddBlock}
-          />
-        </div>
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+      <nav className="flex items-center gap-2 p-4 bg-white border-b flex-shrink-0">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={
+              'px-3 py-1 text-sm font-semibold rounded transition-colors ' +
+              (tab === t.id
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
-        {/* 우측 절반 — 24시간 타임라인 시각화 */}
-        <div className="w-1/2 flex flex-col min-h-0">
-          <DayTimeline schedules={schedules} date={date} />
-        </div>
-      </div>
+      {tab === 'schedule' && (
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            {/* 좌측 절반 — 기존 컨트롤 패널 */}
+            <div className="w-1/2 flex flex-col min-h-0">
+              <DateNavigator date={date} onChange={setDate} />
+              <TaskBacklog
+                tasks={tasks}
+                onAdd={addTask}
+                onDelete={async (id) => { await removeTask(id); }}
+              />
+              <TimeGrid
+                schedules={schedules}
+                onStatusChange={changeStatus}
+                onTimeChange={changeTime}
+                onRemove={removeSchedule}
+                onAddBlock={handleAddBlock}
+              />
+            </div>
 
-      <DragOverlay>
-        {activeItem ? (
-          <div className="px-3 py-2 bg-blue-100 border border-blue-300 rounded shadow-lg text-sm">
-            {activeItem.title}
+            {/* 우측 절반 — 24시간 타임라인 시각화 */}
+            <div className="w-1/2 flex flex-col min-h-0">
+              <DayTimeline schedules={schedules} date={date} />
+            </div>
           </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+
+          <DragOverlay>
+            {activeItem ? (
+              <div className="px-3 py-2 bg-blue-100 border border-blue-300 rounded shadow-lg text-sm">
+                {activeItem.title}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {tab === 'focusmap' && (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <FocusMap />
+        </div>
+      )}
+    </div>
   );
 }

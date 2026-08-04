@@ -18,3 +18,10 @@ CREATE TABLE IF NOT EXISTS schedules (
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
   UNIQUE (date, start_hour)
 );
+
+-- 포커스 맵(BJ Fogg 행동 설계) 세션 — 단일 세션을 JSON으로 저장
+CREATE TABLE IF NOT EXISTS focus_map (
+  id         INTEGER PRIMARY KEY CHECK (id = 1),
+  data       TEXT    NOT NULL,
+  updated_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
