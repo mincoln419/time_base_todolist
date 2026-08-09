@@ -1,6 +1,6 @@
 {
   "version": "3.0",
-  "lastUpdated": "2026-08-09T07:29:58.150Z",
+  "lastUpdated": "2026-08-09T07:44:06.798Z",
   "activeFeatures": [
     "client",
     "routes",
@@ -11,7 +11,8 @@
     "customer-tickets",
     "CustomerTickets",
     "tmp",
-    "db"
+    "db",
+    "Calendar"
   ],
   "primaryFeature": "focusmap-goals",
   "features": {
@@ -79,7 +80,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-11T00:56:24.909Z",
-        "lastUpdated": "2026-08-09T07:25:20.179Z"
+        "lastUpdated": "2026-08-09T07:41:38.343Z"
       },
       "lastFile": "/Users/mermer/repo/time_base_todolist/server/routes/tickets.js",
       "stateMachine": {
@@ -139,9 +140,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-11T00:56:45.709Z",
-        "lastUpdated": "2026-08-09T07:25:45.096Z"
+        "lastUpdated": "2026-08-09T07:43:22.974Z"
       },
-      "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/hooks/useTickets.js",
+      "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/App.jsx",
       "stateMachine": {
         "currentState": "do",
         "previousState": null,
@@ -169,7 +170,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-11T00:56:57.962Z",
-        "lastUpdated": "2026-08-09T07:25:33.399Z"
+        "lastUpdated": "2026-08-09T07:41:47.348Z"
       },
       "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/api/tickets.js",
       "stateMachine": {
@@ -377,9 +378,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-09T03:35:29.206Z",
-        "lastUpdated": "2026-08-09T07:26:20.468Z"
+        "lastUpdated": "2026-08-09T07:43:06.497Z"
       },
-      "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/components/CustomerTickets/CustomerTickets.jsx"
+      "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/components/CustomerTickets/TicketPanel.jsx"
     },
     "tmp": {
       "phase": "do",
@@ -390,9 +391,22 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-09T03:36:49.676Z",
-        "lastUpdated": "2026-08-09T07:29:58.150Z"
+        "lastUpdated": "2026-08-09T07:44:06.798Z"
       },
-      "lastFile": "/tmp/e2e-desired-date.js"
+      "lastFile": "/tmp/e2e-calendar.js"
+    },
+    "Calendar": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-08-09T07:42:25.063Z",
+        "lastUpdated": "2026-08-09T07:42:25.063Z"
+      },
+      "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/components/Calendar/Calendar.jsx"
     }
   },
   "pipeline": {
@@ -405,7 +419,7 @@
   "session": {
     "startedAt": "2026-05-11T00:00:00.000Z",
     "onboardingCompleted": true,
-    "lastActivity": "2026-08-09T07:29:58.150Z"
+    "lastActivity": "2026-08-09T07:44:06.798Z"
   },
   "history": [
     {
@@ -862,6 +876,72 @@
     },
     {
       "timestamp": "2026-08-09T07:29:58.150Z",
+      "feature": "tmp",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:41:38.343Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:41:47.348Z",
+      "feature": "api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:41:50.561Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:42:25.063Z",
+      "feature": "Calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:42:34.211Z",
+      "feature": "CustomerTickets",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:42:41.326Z",
+      "feature": "CustomerTickets",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:43:06.497Z",
+      "feature": "CustomerTickets",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:43:14.704Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:43:18.813Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:43:22.974Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:44:06.798Z",
       "feature": "tmp",
       "phase": "do",
       "action": "updated"

@@ -6,6 +6,7 @@ import TimeGrid from './components/TimeGrid/TimeGrid';
 import DayTimeline from './components/DayTimeline';
 import FocusMap from './components/FocusMap/FocusMap';
 import CustomerTickets from './components/CustomerTickets/CustomerTickets';
+import Calendar from './components/Calendar/Calendar';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
 
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'schedule', label: '일정관리' },
   { id: 'focusmap', label: '포커스 맵' },
   { id: 'customers', label: '고객사 티켓' },
+  { id: 'calendar', label: '캘린더' },
 ];
 
 function toDateString(d) {
@@ -23,6 +25,7 @@ export default function App() {
   const [tab, setTab] = useState('schedule');
   const [date, setDate] = useState(toDateString(new Date()));
   const [activeItem, setActiveItem] = useState(null); // DragOverlay용
+  const [ticketFocus, setTicketFocus] = useState(null); // 캘린더 더블클릭 → 고객사 티켓 탭 딥링크
 
   const { tasks, addTask, removeTask } = useTasks();
   const { schedules, addSchedule, changeStatus, changeTime, removeSchedule } = useSchedules(date);
@@ -128,7 +131,22 @@ export default function App() {
         </div>
       )}
 
-      {tab === 'customers' && <CustomerTickets onTaskAdd={addTask} />}
+      {tab === 'customers' && (
+        <CustomerTickets
+          onTaskAdd={addTask}
+          focusTicket={ticketFocus}
+          onFocusHandled={() => setTicketFocus(null)}
+        />
+      )}
+
+      {tab === 'calendar' && (
+        <Calendar
+          onTicketOpen={(focus) => {
+            setTicketFocus(focus);
+            setTab('customers');
+          }}
+        />
+      )}
     </div>
   );
 }

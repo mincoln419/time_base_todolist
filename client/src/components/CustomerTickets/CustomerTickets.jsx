@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCustomers } from '../../hooks/useCustomers';
 import { useTickets } from '../../hooks/useTickets';
 import CustomerList from './CustomerList';
 import TicketPanel from './TicketPanel';
 
-export default function CustomerTickets({ onTaskAdd }) {
+export default function CustomerTickets({ onTaskAdd, focusTicket, onFocusHandled }) {
   const { customers, addCustomer, removeCustomer } = useCustomers();
   const [selectedId, setSelectedId] = useState(null);
   const { tickets, addTicket, toggle, setDesiredDate, removeTicket } = useTickets(selectedId);
+
+  useEffect(() => {
+    if (!focusTicket) return;
+    setSelectedId(focusTicket.customerId);
+  }, [focusTicket]);
 
   const selectedCustomer = customers.find((c) => c.id === selectedId) ?? null;
 
@@ -39,6 +44,8 @@ export default function CustomerTickets({ onTaskAdd }) {
         onToggle={toggle}
         onSetDesiredDate={setDesiredDate}
         onDelete={removeTicket}
+        focusTicketId={focusTicket?.ticketId ?? null}
+        onFocusHandled={onFocusHandled}
       />
     </div>
   );

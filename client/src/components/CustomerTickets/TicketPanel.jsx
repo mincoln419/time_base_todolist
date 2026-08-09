@@ -1,9 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-export default function TicketPanel({ customer, tickets, onAdd, onToggle, onSetDesiredDate, onDelete }) {
+export default function TicketPanel({
+  customer, tickets, onAdd, onToggle, onSetDesiredDate, onDelete, focusTicketId, onFocusHandled,
+}) {
   const [adding, setAdding] = useState(false);
   const [input, setInput] = useState('');
   const [dateInput, setDateInput] = useState('');
+  const [highlightedId, setHighlightedId] = useState(null);
+  const rowRefs = useRef({});
+
+  useEffect(() => {
+    if (focusTicketId == null) return undefined;
+    const target = tickets.find((t) => t.id === focusTicketId);
+    if (!target) return undefined; // 해당 고객사의 티켓 목록이 아직 로드되지 않음 — 로드되면 재실행됨
+
+    rowRefs.current[focusTicketId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedId(focusTicketId);
+    onFocusHandled?.();
+    const timer = setTimeout(() => setHighlightedId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [focusTicketId, tickets, onFocusHandled]);
 
   if (!customer) {
     return (
@@ -65,7 +81,11 @@ export default function TicketPanel({ customer, tickets, onAdd, onToggle, onSetD
         {tickets.map((t) => (
           <div
             key={t.id}
-            className="flex items-center justify-between gap-3 px-4 py-3 border-b group"
+            ref={(el) => { rowRefs.current[t.id] = el; }}
+            className={
+              'flex items-center justify-between gap-3 px-4 py-3 border-b group transition-colors ' +
+              (t.id === highlightedId ? 'bg-yellow-100' : '')
+            }
           >
             <span
               onClick={() => onToggle(t.id)}

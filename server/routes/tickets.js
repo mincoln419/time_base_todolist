@@ -3,6 +3,17 @@ const db = require('../db/database');
 
 const router = express.Router();
 
+// GET /api/tickets — 전체 고객사의 티켓 목록 조회 (캘린더용, 고객사명 포함)
+router.get('/', (req, res) => {
+  const rows = db.prepare(`
+    SELECT tickets.*, customers.name AS customer_name
+    FROM tickets
+    JOIN customers ON customers.id = tickets.customer_id
+    ORDER BY (tickets.desired_date IS NULL), tickets.desired_date ASC, tickets.id ASC
+  `).all();
+  res.json(rows);
+});
+
 // PATCH /api/tickets/:id/toggle — 등록 상태(registered) 반전
 router.patch('/:id/toggle', (req, res) => {
   const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);

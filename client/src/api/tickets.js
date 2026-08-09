@@ -1,5 +1,11 @@
 const BASE = '/api/tickets';
 
+export async function fetchAllTickets() {
+  const res = await fetch(BASE);
+  if (!res.ok) throw new Error('티켓 목록 조회 실패');
+  return res.json();
+}
+
 export async function toggleTicket(id) {
   const res = await fetch(`${BASE}/${id}/toggle`, { method: 'PATCH' });
   if (!res.ok) throw new Error('상태 변경 실패');

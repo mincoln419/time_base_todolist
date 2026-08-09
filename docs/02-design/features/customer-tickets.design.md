@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 | DELETE | `/api/customers/:id` | 고객사 삭제 (연결 티켓 CASCADE 삭제) | 없음 |
 | GET | `/api/customers/:id/tickets` | 해당 고객사의 티켓 목록 조회 (`id asc`) | 없음 |
 | POST | `/api/customers/:id/tickets` | 해당 고객사에 티켓 추가 | 없음 |
+| GET | `/api/tickets` | 전 고객사 티켓 목록 조회, `customer_name` 조인 (캘린더용, v0.2 추가) | 없음 |
 | PATCH | `/api/tickets/:id/toggle` | 티켓의 `registered` 값 반전 | 없음 |
 | PATCH | `/api/tickets/:id/desired-date` | 티켓의 `desired_date`(희망 일자) 설정/변경/해제 (v0.1.1 추가) | 없음 |
 | DELETE | `/api/tickets/:id` | 티켓 삭제 | 없음 |
@@ -513,9 +514,72 @@ client/src/
 
 ---
 
+## 12. v0.3 Addendum — Calendar Tab & Deep Link
+
+### 12.1 목적
+
+`desired_date`가 설정된 티켓을 월별 캘린더로 한눈에 보고, 캘린더에서 더블클릭하면 "고객사 티켓" 탭의 해당 티켓으로 바로 이동(딥링크)한다.
+
+### 12.2 신규 API
+
+#### `GET /api/tickets`
+
+전 고객사의 티켓을 `customers`와 조인해 `customer_name`을 포함, `desired_date`가 없는 항목은 뒤로 정렬해 반환한다 (`ORDER BY (desired_date IS NULL), desired_date ASC, id ASC`).
+
+**Response (200):**
+```json
+[
+  { "id": 6, "customer_id": 6, "customer_name": "북미SDS", "title": "기타 문의", "registered": 0, "desired_date": "2026-08-28", "created_at": "2026-08-09 16:29:44" }
+]
+```
+
+캘린더는 이 응답에서 `desired_date`가 있는 항목만 날짜별로 그룹핑해 표시한다 (날짜 없는 티켓은 캘린더에 표시하지 않음 — 요구사항 그대로).
+
+### 12.3 Component
+
+| Component | Location | Responsibility |
+|-----------|----------|----------------|
+| `Calendar.jsx` | `client/src/components/Calendar/` | 월 네비게이션(◀/▶), 6×7 그리드, 날짜별 티켓 칩 렌더링, 더블클릭 시 `onTicketOpen({customerId, ticketId})` 호출 |
+| `useAllTickets` | `client/src/hooks/` | `GET /api/tickets` 로드 (탭 마운트 시 1회, 다른 탭과 동일하게 재방문 시 재조회) |
+
+### 12.4 딥링크 데이터 흐름
+
+```
+Calendar 티켓 칩 더블클릭
+  → App.jsx: setTicketFocus({ customerId, ticketId }) + setTab('customers')
+  → CustomerTickets.jsx: focusTicket prop 변경 감지(useEffect) → setSelectedId(focusTicket.customerId)
+  → useTickets(selectedId)가 해당 고객사 티켓 목록 재조회
+  → TicketPanel.jsx: tickets 배열에 focusTicketId가 나타나면(useEffect) 해당 행으로 scrollIntoView + 2초간 하이라이트(bg-yellow-100)
+  → onFocusHandled() 호출로 App.jsx의 ticketFocus를 초기화 (동일 티켓 재더블클릭 시에도 재하이라이트 되도록)
+```
+
+상태 관리는 새 전역 스토어 없이 `App.jsx`가 `ticketFocus` 하나만 들고 있다가 `CustomerTickets`로 props 전달하는 방식 — 기존 `addTask` props 전달 패턴과 동일한 단방향 흐름을 유지한다.
+
+### 12.5 File Structure 추가분
+
+```
+server/routes/tickets.js          (수정 — GET / 라우트 추가)
+client/src/api/tickets.js         (수정 — fetchAllTickets 추가)
+client/src/hooks/useAllTickets.js (신규)
+client/src/components/Calendar/
+└── Calendar.jsx                  (신규)
+client/src/components/CustomerTickets/
+├── CustomerTickets.jsx           (수정 — focusTicket/onFocusHandled 처리)
+└── TicketPanel.jsx               (수정 — focusTicketId 스크롤+하이라이트)
+client/src/App.jsx                (수정 — 캘린더 탭 추가, ticketFocus 상태)
+```
+
+### 12.6 검증
+
+- curl: `GET /api/tickets` 조인 결과(`customer_name` 포함) 확인
+- Playwright E2E: 임시 고객사/티켓 생성(희망 일자 지정) → 캘린더 탭에서 해당 날짜 칸에 노출 확인 → 더블클릭 → "고객사 티켓" 탭으로 전환, 해당 고객사 자동 선택, 티켓 행 하이라이트 확인 → 콘솔 에러 0건
+
+---
+
 ## Version History
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 0.1 | 2026-08-09 | Initial draft (Option B 선택) | Mincoln Cho |
 | 0.2 | 2026-08-09 | `desired_date`(희망 일자, 선택·수정 가능) 필드 및 `PATCH /:id/desired-date` 추가 | Mincoln Cho |
+| 0.3 | 2026-08-09 | 캘린더 탭(`GET /api/tickets`, `Calendar.jsx`) 및 더블클릭 딥링크 추가 | Mincoln Cho |
