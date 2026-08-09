@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import DateNavigator from './components/DateNavigator';
 import TaskBacklog from './components/TaskBacklog/TaskBacklog';
@@ -26,11 +26,29 @@ export default function App() {
   const [date, setDate] = useState(toDateString(new Date()));
   const [activeItem, setActiveItem] = useState(null); // DragOverlay용
   const [ticketFocus, setTicketFocus] = useState(null); // 캘린더 더블클릭 → 고객사 티켓 탭 딥링크
+  const [calendarYM, setCalendarYM] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  }); // 탭을 벗어났다 돌아와도 보던 달을 유지하기 위해 App으로 끌어올린 상태
 
   const { tasks, addTask, removeTask } = useTasks();
   const { schedules, addSchedule, changeStatus, changeTime, removeSchedule } = useSchedules(date);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // 탭 전환마다 History 엔트리를 쌓아, 브라우저 뒤로가기로 이전 탭으로 돌아갈 수 있게 한다
+  useEffect(() => {
+    window.history.replaceState({ tab: 'schedule' }, '');
+    const onPopState = (e) => setTab(e.state?.tab ?? 'schedule');
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const goToTab = (nextTab) => {
+    if (nextTab === tab) return;
+    window.history.pushState({ tab: nextTab }, '');
+    setTab(nextTab);
+  };
 
   const handleDragStart = ({ active }) => setActiveItem(active.data.current);
 
@@ -76,7 +94,7 @@ export default function App() {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => goToTab(t.id)}
             className={
               'px-3 py-1 text-sm font-semibold rounded transition-colors ' +
               (tab === t.id
@@ -141,9 +159,12 @@ export default function App() {
 
       {tab === 'calendar' && (
         <Calendar
+          year={calendarYM.year}
+          month={calendarYM.month}
+          onMonthChange={(year, month) => setCalendarYM({ year, month })}
           onTicketOpen={(focus) => {
             setTicketFocus(focus);
-            setTab('customers');
+            goToTab('customers');
           }}
         />
       )}

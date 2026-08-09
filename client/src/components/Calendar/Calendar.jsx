@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useAllTickets } from '../../hooks/useAllTickets';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -20,16 +19,13 @@ function buildGrid(year, month) {
   });
 }
 
-export default function Calendar({ onTicketOpen }) {
+export default function Calendar({ year, month, onMonthChange, onTicketOpen }) {
   const { tickets, loaded } = useAllTickets();
   const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
 
   const moveMonth = (delta) => {
     const d = new Date(year, month + delta, 1);
-    setYear(d.getFullYear());
-    setMonth(d.getMonth());
+    onMonthChange(d.getFullYear(), d.getMonth());
   };
 
   if (!loaded) {
@@ -79,7 +75,7 @@ export default function Calendar({ onTicketOpen }) {
               key={dStr}
               className={
                 'border-b border-r p-1 min-h-[90px] flex flex-col gap-1 ' +
-                (isWeekend ? 'bg-gray-100' : inMonth ? 'bg-white' : 'bg-gray-50')
+                (isWeekend ? 'bg-gray-50' : inMonth ? 'bg-white' : 'bg-gray-50')
               }
             >
               <span

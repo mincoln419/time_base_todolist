@@ -1,6 +1,6 @@
 {
   "version": "3.0",
-  "lastUpdated": "2026-08-09T07:49:08.355Z",
+  "lastUpdated": "2026-08-09T07:57:35.209Z",
   "activeFeatures": [
     "client",
     "routes",
@@ -140,7 +140,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-11T00:56:45.709Z",
-        "lastUpdated": "2026-08-09T07:43:22.974Z"
+        "lastUpdated": "2026-08-09T07:57:03.177Z"
       },
       "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/App.jsx",
       "stateMachine": {
@@ -391,9 +391,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-09T03:36:49.676Z",
-        "lastUpdated": "2026-08-09T07:49:08.355Z"
+        "lastUpdated": "2026-08-09T07:57:35.209Z"
       },
-      "lastFile": "/tmp/e2e-calendar-weekend.js"
+      "lastFile": "/tmp/e2e-back-nav.js"
     },
     "Calendar": {
       "phase": "do",
@@ -404,7 +404,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-09T07:42:25.063Z",
-        "lastUpdated": "2026-08-09T07:49:00.351Z"
+        "lastUpdated": "2026-08-09T07:57:14.553Z"
       },
       "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/components/Calendar/Calendar.jsx"
     }
@@ -419,7 +419,7 @@
   "session": {
     "startedAt": "2026-05-11T00:00:00.000Z",
     "onboardingCompleted": true,
-    "lastActivity": "2026-08-09T07:49:08.355Z"
+    "lastActivity": "2026-08-09T07:57:35.209Z"
   },
   "history": [
     {
@@ -954,6 +954,54 @@
     },
     {
       "timestamp": "2026-08-09T07:49:08.355Z",
+      "feature": "tmp",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:54:08.216Z",
+      "feature": "Calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:56:36.174Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:56:54.675Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:56:59.125Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:57:03.177Z",
+      "feature": "client",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:57:10.094Z",
+      "feature": "Calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:57:14.553Z",
+      "feature": "Calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:57:35.209Z",
       "feature": "tmp",
       "phase": "do",
       "action": "updated"
