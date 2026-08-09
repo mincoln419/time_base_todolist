@@ -10,6 +10,8 @@ app.use(express.json());
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/focusmap', require('./routes/focusmap'));
+app.use('/api/customers', require('./routes/customers'));
+app.use('/api/tickets', require('./routes/tickets'));
 
 app.use((err, req, res, next) => {
   console.error(err);

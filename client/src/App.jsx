@@ -5,12 +5,14 @@ import TaskBacklog from './components/TaskBacklog/TaskBacklog';
 import TimeGrid from './components/TimeGrid/TimeGrid';
 import DayTimeline from './components/DayTimeline';
 import FocusMap from './components/FocusMap/FocusMap';
+import CustomerTickets from './components/CustomerTickets/CustomerTickets';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
 
 const TABS = [
   { id: 'schedule', label: '일정관리' },
   { id: 'focusmap', label: '포커스 맵' },
+  { id: 'customers', label: '고객사 티켓' },
 ];
 
 function toDateString(d) {
@@ -125,6 +127,8 @@ export default function App() {
           <FocusMap />
         </div>
       )}
+
+      {tab === 'customers' && <CustomerTickets onTaskAdd={addTask} />}
     </div>
   );
 }

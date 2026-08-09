@@ -19,4 +19,10 @@ db.exec('PRAGMA foreign_keys = ON');
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 
+// 마이그레이션: 기존 DB에 tickets.desired_date 컬럼이 없으면 추가
+const ticketColumns = db.prepare("PRAGMA table_info(tickets)").all();
+if (!ticketColumns.some((c) => c.name === 'desired_date')) {
+  db.exec('ALTER TABLE tickets ADD COLUMN desired_date TEXT');
+}
+
 module.exports = db;
