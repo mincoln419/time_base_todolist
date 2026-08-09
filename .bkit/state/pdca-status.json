@@ -1,6 +1,6 @@
 {
   "version": "3.0",
-  "lastUpdated": "2026-08-09T07:44:06.798Z",
+  "lastUpdated": "2026-08-09T07:49:08.355Z",
   "activeFeatures": [
     "client",
     "routes",
@@ -391,9 +391,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-09T03:36:49.676Z",
-        "lastUpdated": "2026-08-09T07:44:06.798Z"
+        "lastUpdated": "2026-08-09T07:49:08.355Z"
       },
-      "lastFile": "/tmp/e2e-calendar.js"
+      "lastFile": "/tmp/e2e-calendar-weekend.js"
     },
     "Calendar": {
       "phase": "do",
@@ -404,7 +404,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-08-09T07:42:25.063Z",
-        "lastUpdated": "2026-08-09T07:42:25.063Z"
+        "lastUpdated": "2026-08-09T07:49:00.351Z"
       },
       "lastFile": "/Users/mermer/repo/time_base_todolist/client/src/components/Calendar/Calendar.jsx"
     }
@@ -419,7 +419,7 @@
   "session": {
     "startedAt": "2026-05-11T00:00:00.000Z",
     "onboardingCompleted": true,
-    "lastActivity": "2026-08-09T07:44:06.798Z"
+    "lastActivity": "2026-08-09T07:49:08.355Z"
   },
   "history": [
     {
@@ -942,6 +942,18 @@
     },
     {
       "timestamp": "2026-08-09T07:44:06.798Z",
+      "feature": "tmp",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:49:00.351Z",
+      "feature": "Calendar",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-09T07:49:08.355Z",
       "feature": "tmp",
       "phase": "do",
       "action": "updated"

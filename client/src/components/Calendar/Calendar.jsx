@@ -55,8 +55,14 @@ export default function Calendar({ onTicketOpen }) {
       </div>
 
       <div className="grid grid-cols-7 border-b flex-shrink-0">
-        {WEEKDAYS.map((w) => (
-          <div key={w} className="p-2 text-center text-xs font-semibold text-gray-500 border-r last:border-r-0">
+        {WEEKDAYS.map((w, i) => (
+          <div
+            key={w}
+            className={
+              'p-2 text-center text-xs font-semibold border-r last:border-r-0 ' +
+              (i === 0 || i === 6 ? 'text-red-500' : 'text-gray-500')
+            }
+          >
             {w}
           </div>
         ))}
@@ -66,18 +72,24 @@ export default function Calendar({ onTicketOpen }) {
         {days.map((d) => {
           const dStr = toDateString(d);
           const inMonth = d.getMonth() === month;
+          const isWeekend = d.getDay() === 0 || d.getDay() === 6;
           const dayTickets = byDate[dStr] ?? [];
           return (
             <div
               key={dStr}
-              className={'border-b border-r p-1 min-h-[90px] flex flex-col gap-1 ' + (inMonth ? 'bg-white' : 'bg-gray-50')}
+              className={
+                'border-b border-r p-1 min-h-[90px] flex flex-col gap-1 ' +
+                (isWeekend ? 'bg-gray-100' : inMonth ? 'bg-white' : 'bg-gray-50')
+              }
             >
               <span
                 className={
                   'text-xs ' +
                   (dStr === todayStr
                     ? 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white'
-                    : inMonth ? 'text-gray-700' : 'text-gray-300')
+                    : isWeekend
+                      ? (inMonth ? 'text-red-500' : 'text-red-300')
+                      : inMonth ? 'text-gray-700' : 'text-gray-300')
                 }
               >
                 {d.getDate()}
