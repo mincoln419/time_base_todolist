@@ -144,8 +144,9 @@ export default function App() {
       )}
 
       {tab === 'focusmap' && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <FocusMap />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {/* Design Ref: §11.2 — addTask를 prop으로 전달해 App의 useTasks 상태와 공유(별도 useTasks 호출 시 탭 전환 후 스테일 상태 방지) */}
+          <FocusMap addTask={addTask} />
         </div>
       )}
 

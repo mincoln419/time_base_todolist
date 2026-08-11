@@ -19,9 +19,11 @@ CREATE TABLE IF NOT EXISTS schedules (
   UNIQUE (date, start_hour)
 );
 
--- 포커스 맵(BJ Fogg 행동 설계) 세션 — 단일 세션을 JSON으로 저장
+-- 포커스 맵(BJ Fogg 행동 설계) 세션 — 목표(goal)별로 여러 세션을 JSON으로 저장
+-- Design Ref: §3.3 — goal을 UNIQUE 키로 사용, id는 URL 경로용 PK
 CREATE TABLE IF NOT EXISTS focus_map (
-  id         INTEGER PRIMARY KEY CHECK (id = 1),
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal       TEXT    NOT NULL UNIQUE,
   data       TEXT    NOT NULL,
   updated_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );

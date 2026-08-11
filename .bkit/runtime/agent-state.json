@@ -1,14 +1,25 @@
 {
   "version": "1.0",
-  "enabled": false,
+  "enabled": true,
   "teamName": "",
-  "feature": "client",
+  "feature": "focusmap-goals",
   "pdcaPhase": "do",
   "orchestrationPattern": "leader",
   "ctoAgent": "opus",
-  "startedAt": "2026-08-04T03:30:40.358Z",
-  "lastUpdated": "2026-08-09T07:59:54.256Z",
-  "teammates": [],
+  "startedAt": "2026-08-04T09:20:00.424Z",
+  "lastUpdated": "2026-08-04T09:24:52.835Z",
+  "teammates": [
+    {
+      "name": "a0f7efea57c315c80",
+      "role": "bkit:gap-detector",
+      "model": "sonnet",
+      "status": "completed",
+      "currentTask": null,
+      "taskId": null,
+      "startedAt": "2026-08-04T09:20:00.425Z",
+      "lastActivityAt": "2026-08-04T09:24:52.833Z"
+    }
+  ],
   "progress": {
     "totalTasks": 0,
     "completedTasks": 0,
