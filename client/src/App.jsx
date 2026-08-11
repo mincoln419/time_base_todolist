@@ -7,6 +7,7 @@ import DayTimeline from './components/DayTimeline';
 import FocusMap from './components/FocusMap/FocusMap';
 import CustomerTickets from './components/CustomerTickets/CustomerTickets';
 import Calendar from './components/Calendar/Calendar';
+import BackupControls from './components/BackupControls';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
 
@@ -105,6 +106,9 @@ export default function App() {
             {t.label}
           </button>
         ))}
+        <div className="ml-auto">
+          <BackupControls />
+        </div>
       </nav>
 
       {tab === 'schedule' && (
