@@ -5,13 +5,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: 'http://localhost:5173' }));
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/schedules', require('./routes/schedules'));
 app.use('/api/focusmap', require('./routes/focusmap'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/tickets', require('./routes/tickets'));
+app.use('/api/backup', require('./routes/backup'));
 
 app.use((err, req, res, next) => {
   console.error(err);
