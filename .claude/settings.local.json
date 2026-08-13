@@ -14,7 +14,11 @@
       "Bash(powershell -NoProfile -Command \"Stop-Process -Id 193940 -Force\")",
       "Bash(echo \"EXIT:$?\")",
       "Bash(powershell -NoProfile -Command \"Stop-Process -Id 199152 -Force\")",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(powershell -NoProfile -Command \"Get-Process -Id 19701,19702 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName\")",
+      "PowerShell(.\\\\dev.ps1 stop)",
+      "Bash(powershell -NoProfile -Command \"Stop-Process -Id 569880,537716,569568 -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Get-Process -Id 569880,537716,569568 -ErrorAction SilentlyContinue\")",
+      "PowerShell(.\\\\dev.ps1)"
     ]
   }
 }

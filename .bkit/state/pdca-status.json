@@ -1,6 +1,6 @@
 {
   "version": "3.0",
-  "lastUpdated": "2026-08-09T07:57:35.209Z",
+  "lastUpdated": "2026-08-12T07:36:56.326Z",
   "activeFeatures": [
     "client",
     "routes",
@@ -12,7 +12,8 @@
     "CustomerTickets",
     "tmp",
     "db",
-    "Calendar"
+    "Calendar",
+    "time_base_todolist"
   ],
   "primaryFeature": "focusmap-goals",
   "features": {
@@ -260,9 +261,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-16T04:07:55.094Z",
-        "lastUpdated": "2026-05-16T04:09:24.213Z"
+        "lastUpdated": "2026-08-12T07:36:56.325Z"
       },
-      "lastFile": "/Users/mermer/repo/time_base_todolist/dev.sh",
+      "lastFile": "D:\\repo\\time_base_todolist\\dev.ps1",
       "stateMachine": {
         "currentState": "do",
         "previousState": null,
@@ -419,7 +420,7 @@
   "session": {
     "startedAt": "2026-05-11T00:00:00.000Z",
     "onboardingCompleted": true,
-    "lastActivity": "2026-08-09T07:57:35.209Z"
+    "lastActivity": "2026-08-12T07:36:56.326Z"
   },
   "history": [
     {
@@ -1003,6 +1004,24 @@
     {
       "timestamp": "2026-08-09T07:57:35.209Z",
       "feature": "tmp",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-11T05:53:29.008Z",
+      "feature": "time_base_todolist",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-11T08:05:01.787Z",
+      "feature": "time_base_todolist",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-08-12T07:36:56.326Z",
+      "feature": "time_base_todolist",
       "phase": "do",
       "action": "updated"
     }
