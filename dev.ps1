@@ -7,10 +7,22 @@ param(
 $Root = $PSScriptRoot
 $PidFile = Join-Path $Root '.dev.pids'
 
+function Test-AnyAlive($processIds) {
+    foreach ($procId in $processIds) {
+        if (Get-Process -Id $procId -ErrorAction SilentlyContinue) { return $true }
+    }
+    return $false
+}
+
 function Start-Dev {
     if (Test-Path $PidFile) {
-        Write-Host "Already running. Run '.\dev.ps1 stop' first."
-        exit 1
+        $existingPids = (Get-Content $PidFile -Raw).Trim() -split '\s+'
+        if (Test-AnyAlive $existingPids) {
+            Write-Host "Already running. Run '.\dev.ps1 stop' first."
+            exit 1
+        }
+        Write-Host 'Stale .dev.pids found (processes no longer running) — cleaning up.'
+        Remove-Item $PidFile -Force
     }
 
     Write-Host 'Installing server dependencies...'
@@ -35,8 +47,6 @@ function Start-Dev {
 
     Write-Host "Started — server PID $($serverProc.Id), client PID $($clientProc.Id)"
     Write-Host "Run '.\dev.ps1 stop' to shut down."
-
-    Wait-Process -Id $serverProc.Id, $clientProc.Id -ErrorAction SilentlyContinue
 }
 
 function Stop-Dev {

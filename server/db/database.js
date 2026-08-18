@@ -23,9 +23,24 @@ if (isLegacyFocusMap) {
   db.exec('DROP TABLE focus_map');
 }
 
+// 마이그레이션: schedules가 구버전(start_hour/end_hour) 구조면 분 단위(start_min/end_min)로 이관
+const scheduleColumns = db.prepare("PRAGMA table_info(schedules)").all();
+const isLegacySchedules = scheduleColumns.some((c) => c.name === 'start_hour');
+if (isLegacySchedules) {
+  db.exec('ALTER TABLE schedules RENAME TO schedules_old');
+}
+
 // DDL 초기화
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
+
+if (isLegacySchedules) {
+  db.exec(`
+    INSERT INTO schedules (id, title, date, start_min, end_min, status, created_at)
+    SELECT id, title, date, start_hour * 60, end_hour * 60, status, created_at FROM schedules_old
+  `);
+  db.exec('DROP TABLE schedules_old');
+}
 
 // 마이그레이션: 기존 DB에 tickets.desired_date 컬럼이 없으면 추가
 const ticketColumns = db.prepare("PRAGMA table_info(tickets)").all();
