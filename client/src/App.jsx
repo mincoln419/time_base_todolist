@@ -24,6 +24,8 @@ function toDateString(d) {
   return d.toISOString().slice(0, 10);
 }
 
+const DEFAULT_DURATION_MIN = 60; // 새 블록의 기본 길이 — 1시간
+
 export default function App() {
   const [tab, setTab] = useState('schedule');
   const [date, setDate] = useState(toDateString(new Date()));
@@ -65,10 +67,10 @@ export default function App() {
 
     // 백로그 → 시간 슬롯
     if (src.type === 'task' && (dst.type === 'slot' || dst.type === 'timeblock')) {
-      const startHour = dst.type === 'slot' ? dst.hour : schedules.find((s) => s.id === dst.blockId)?.start_hour;
-      if (startHour == null) return;
+      const startMin = dst.type === 'slot' ? dst.startMin : schedules.find((s) => s.id === dst.blockId)?.start_min;
+      if (startMin == null) return;
       try {
-        await addSchedule({ title: src.title, start_hour: startHour, end_hour: startHour + 1 });
+        await addSchedule({ title: src.title, start_min: startMin, end_min: startMin + DEFAULT_DURATION_MIN });
       } catch (e) {
         alert(e.message);
       }
@@ -81,12 +83,12 @@ export default function App() {
   };
 
   // 수기 시간 블록 추가 (DnD 없이) — 첫 번째 미배치 할일 제목으로 생성
-  const handleAddBlock = async (startHour) => {
+  const handleAddBlock = async (startMin) => {
     if (tasks.length === 0) { alert('먼저 할 일을 추가해주세요.'); return; }
     const scheduledTitles = new Set(schedules.map((s) => s.title));
     const target = tasks.find((t) => !scheduledTitles.has(t.title)) ?? tasks[0];
     try {
-      await addSchedule({ title: target.title, start_hour: startHour, end_hour: startHour + 1 });
+      await addSchedule({ title: target.title, start_min: startMin, end_min: startMin + DEFAULT_DURATION_MIN });
     } catch (e) {
       alert(e.message);
     }
@@ -151,8 +153,9 @@ export default function App() {
       )}
 
       {tab === 'focusmap' && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <FocusMap />
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {/* Design Ref: §11.2 — addTask를 prop으로 전달해 App의 useTasks 상태와 공유(별도 useTasks 호출 시 탭 전환 후 스테일 상태 방지) */}
+          <FocusMap addTask={addTask} />
         </div>
       )}
 

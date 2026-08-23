@@ -7,21 +7,24 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 -- 시간 블록 (백로그와 독립적인 일정 데이터)
+-- start_min/end_min: 자정 기준 분 단위(0~1440). 1시간/30분 단위 모두 이 컬럼으로 표현한다.
 CREATE TABLE IF NOT EXISTS schedules (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   title      TEXT    NOT NULL,
   date       TEXT    NOT NULL,
-  start_hour INTEGER NOT NULL CHECK (start_hour >= 0 AND start_hour <= 23),
-  end_hour   INTEGER NOT NULL CHECK (end_hour > start_hour AND end_hour <= 24),
+  start_min  INTEGER NOT NULL CHECK (start_min >= 0 AND start_min < 1440),
+  end_min    INTEGER NOT NULL CHECK (end_min > start_min AND end_min <= 1440),
   status     TEXT    NOT NULL DEFAULT 'planned'
                     CHECK (status IN ('planned', 'in_progress', 'done', 'skipped')),
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
-  UNIQUE (date, start_hour)
+  UNIQUE (date, start_min)
 );
 
--- 포커스 맵(BJ Fogg 행동 설계) 세션 — 단일 세션을 JSON으로 저장
+-- 포커스 맵(BJ Fogg 행동 설계) 세션 — 목표(goal)별로 여러 세션을 JSON으로 저장
+-- Design Ref: §3.3 — goal을 UNIQUE 키로 사용, id는 URL 경로용 PK
 CREATE TABLE IF NOT EXISTS focus_map (
-  id         INTEGER PRIMARY KEY CHECK (id = 1),
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal       TEXT    NOT NULL UNIQUE,
   data       TEXT    NOT NULL,
   updated_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );

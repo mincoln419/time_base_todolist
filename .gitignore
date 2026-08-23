@@ -2,5 +2,15 @@ node_modules/
 data/
 .env
 client/dist/
+
+# local dev runtime
 .dev.pids
+.claude/settings.local.json
+
+# bkit auto-generated logs/state (churns every session)
+.bkit/audit/
 .bkit/runtime/
+.bkit/snapshots/
+.bkit/state/memory.json
+.bkit/state/pdca-status.json
+.bkit/state/session-history.json

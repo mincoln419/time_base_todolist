@@ -11,9 +11,9 @@ export function useSchedules(date) {
 
   useEffect(() => { load(); }, [load]);
 
-  const addSchedule = useCallback(async ({ title, start_hour, end_hour }) => {
-    const s = await createSchedule({ title, date, start_hour, end_hour });
-    setSchedules((prev) => [...prev, s].sort((a, b) => a.start_hour - b.start_hour));
+  const addSchedule = useCallback(async ({ title, start_min, end_min }) => {
+    const s = await createSchedule({ title, date, start_min, end_min });
+    setSchedules((prev) => [...prev, s].sort((a, b) => a.start_min - b.start_min));
     return s;
   }, [date]);
 
@@ -22,9 +22,9 @@ export function useSchedules(date) {
     setSchedules((prev) => prev.map((x) => (x.id === id ? s : x)));
   }, []);
 
-  const changeTime = useCallback(async (id, start_hour, end_hour) => {
-    const s = await updateSchedule(id, { start_hour, end_hour });
-    setSchedules((prev) => prev.map((x) => (x.id === id ? s : x)).sort((a, b) => a.start_hour - b.start_hour));
+  const changeTime = useCallback(async (id, start_min, end_min) => {
+    const s = await updateSchedule(id, { start_min, end_min });
+    setSchedules((prev) => prev.map((x) => (x.id === id ? s : x)).sort((a, b) => a.start_min - b.start_min));
   }, []);
 
   const removeSchedule = useCallback(async (id) => {

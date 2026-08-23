@@ -6,11 +6,11 @@ export async function fetchSchedules(date) {
   return res.json();
 }
 
-export async function createSchedule({ title, date, start_hour, end_hour }) {
+export async function createSchedule({ title, date, start_min, end_min }) {
   const res = await fetch(BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, date, start_hour, end_hour }),
+    body: JSON.stringify({ title, date, start_min, end_min }),
   });
   if (!res.ok) {
     const { error } = await res.json();

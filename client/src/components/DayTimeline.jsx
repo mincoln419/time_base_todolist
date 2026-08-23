@@ -1,3 +1,5 @@
+import { formatMinutes } from '../utils/time';
+
 const HOUR_HEIGHT = 56; // px per hour — 24h × 56 = 1344px total
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -31,22 +33,22 @@ export default function DayTimeline({ schedules, date }) {
 
           {/* Schedule blocks */}
           {schedules.map((s) => {
-            const duration = s.end_hour - s.start_hour;
+            const durationMin = s.end_min - s.start_min;
             const statusClass = STATUS_STYLE[s.status] ?? STATUS_STYLE.todo;
             return (
               <div
                 key={s.id}
                 className={`absolute border rounded-md px-2 py-1 overflow-hidden ${statusClass}`}
                 style={{
-                  top: s.start_hour * HOUR_HEIGHT + 1,
-                  height: duration * HOUR_HEIGHT - 2,
+                  top: (s.start_min / 60) * HOUR_HEIGHT + 1,
+                  height: (durationMin / 60) * HOUR_HEIGHT - 2,
                   left: '3.5rem',
                   right: '0.5rem',
                 }}
               >
                 <p className="text-xs font-semibold leading-tight truncate">{s.title}</p>
                 <p className="text-xs opacity-60">
-                  {String(s.start_hour).padStart(2, '0')}:00 – {String(s.end_hour).padStart(2, '0')}:00
+                  {formatMinutes(s.start_min)} – {formatMinutes(s.end_min)}
                 </p>
               </div>
             );

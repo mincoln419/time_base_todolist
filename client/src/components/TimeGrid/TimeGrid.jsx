@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import TimeBlock from './TimeBlock';
+import { formatMinutes } from '../../utils/time';
 
-function EmptySlot({ hour }) {
+function EmptySlot({ startMin }) {
   const { setNodeRef, isOver } = useDroppable({
-    id: `slot-${hour}`,
-    data: { type: 'slot', hour },
+    id: `slot-${startMin}`,
+    data: { type: 'slot', startMin },
   });
 
   return (
@@ -15,34 +16,40 @@ function EmptySlot({ hour }) {
         isOver ? 'bg-blue-50 border-blue-400' : 'border-gray-200 bg-gray-50'
       }`}
     >
-      <span className="text-sm text-gray-400 w-16 flex-shrink-0">{String(hour).padStart(2, '0')}:00</span>
+      <span className="text-sm text-gray-400 w-16 flex-shrink-0">{formatMinutes(startMin)}</span>
       <span className="text-xs text-gray-300">드래그하여 배치</span>
     </div>
   );
 }
 
-const WORK_HOURS = Array.from({ length: 10 }, (_, i) => i + 9); // 9~18시
+const WORK_START_MIN = 9 * 60;
+const WORK_END_MIN = 18 * 60; // 9~18시
+const HOUR_STEP = 60;   // 뷰(빈 슬롯 목록)는 1시간 단위 고정
+const SELECT_STEP = 30; // 셀렉트박스는 30분 단위로 선택 가능
 
 export default function TimeGrid({ schedules, onStatusChange, onTimeChange, onRemove, onAddBlock }) {
-  const [newHour, setNewHour] = useState('');
+  const [newStart, setNewStart] = useState('');
 
-  // 블록의 start_hour ~ end_hour 범위 전체를 점유로 계산
-  const occupiedHours = new Set(
-    schedules.flatMap((s) => Array.from({ length: s.end_hour - s.start_hour }, (_, i) => s.start_hour + i))
-  );
+  const isOccupied = (startMin) => schedules.some((s) => startMin >= s.start_min && startMin < s.end_min);
 
-  // 업무시간(9~18) 중 점유되지 않은 빈 슬롯
-  const emptyWorkSlots = WORK_HOURS.filter((h) => !occupiedHours.has(h));
+  // 업무시간(9~18) 중 점유되지 않은 빈 슬롯 — 1시간 단위
+  const emptyWorkSlots = [];
+  for (let m = WORK_START_MIN; m < WORK_END_MIN; m += HOUR_STEP) {
+    if (!isOccupied(m)) emptyWorkSlots.push(m);
+  }
 
   const addBlock = () => {
-    const h = parseInt(newHour, 10);
-    if (isNaN(h)) return;
-    onAddBlock(h);
-    setNewHour('');
+    const m = parseInt(newStart, 10);
+    if (isNaN(m)) return;
+    onAddBlock(m);
+    setNewStart('');
   };
 
-  // 선택 가능한 시간: 전체 0~23 중 점유되지 않은 시간
-  const selectableHours = Array.from({ length: 24 }, (_, i) => i).filter((h) => !occupiedHours.has(h));
+  // 선택 가능한 시간: 하루 전체 중 점유되지 않은 시간 — 30분 단위
+  const selectableSlots = [];
+  for (let m = 0; m < 24 * 60; m += SELECT_STEP) {
+    if (!isOccupied(m)) selectableSlots.push(m);
+  }
 
   return (
     <div className="p-4 flex-1 overflow-y-auto">
@@ -61,26 +68,26 @@ export default function TimeGrid({ schedules, onStatusChange, onTimeChange, onRe
         ))}
 
         {/* 업무시간(9~18) 빈 슬롯 */}
-        {emptyWorkSlots.map((h) => (
-          <EmptySlot key={h} hour={h} />
+        {emptyWorkSlots.map((m) => (
+          <EmptySlot key={m} startMin={m} />
         ))}
       </div>
 
       {/* 시간 블록 추가 (드롭다운 선택) */}
       <div className="flex gap-2 mt-4">
         <select
-          value={newHour}
-          onChange={(e) => setNewHour(e.target.value)}
+          value={newStart}
+          onChange={(e) => setNewStart(e.target.value)}
           className="px-3 py-2 text-sm border rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">시간 선택</option>
-          {selectableHours.map((h) => (
-            <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+          {selectableSlots.map((m) => (
+            <option key={m} value={m}>{formatMinutes(m)}</option>
           ))}
         </select>
         <button
           onClick={addBlock}
-          disabled={!newHour}
+          disabled={!newStart}
           className="px-4 py-2 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           + 추가
