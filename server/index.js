@@ -13,6 +13,7 @@ app.use('/api/focusmap', require('./routes/focusmap'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/tickets', require('./routes/tickets'));
 app.use('/api/worries', require('./routes/worries'));
+app.use('/api/longgoals', require('./routes/longgoals'));
 app.use('/api/backup', require('./routes/backup'));
 
 app.use((err, req, res, next) => {

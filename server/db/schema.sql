@@ -62,3 +62,62 @@ CREATE TABLE IF NOT EXISTS unconscious_worry_attempts (
   created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
   PRIMARY KEY (worry_id, date)
 );
+
+-- 장기 목표
+CREATE TABLE IF NOT EXISTS long_goals (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  title        TEXT    NOT NULL,
+  period_start TEXT,
+  period_end   TEXT,
+  description  TEXT,
+  status       TEXT    NOT NULL DEFAULT 'active'
+                       CHECK (status IN ('active', 'paused', 'done')),
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+  completed_at TEXT
+);
+
+-- 장기 목표의 하위 목표
+CREATE TABLE IF NOT EXISTS long_goal_subgoals (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal_id    INTEGER NOT NULL REFERENCES long_goals(id) ON DELETE CASCADE,
+  title      TEXT    NOT NULL,
+  notes      TEXT,
+  period_start TEXT,
+  period_end   TEXT,
+  status     TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done')),
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 장기 목표 달성을 위해 필요한 작업, 업무, 조건
+CREATE TABLE IF NOT EXISTS long_goal_requirements (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal_id    INTEGER NOT NULL REFERENCES long_goals(id) ON DELETE CASCADE,
+  kind       TEXT    NOT NULL DEFAULT 'task' CHECK (kind IN ('task', 'work', 'condition')),
+  title      TEXT    NOT NULL,
+  notes      TEXT,
+  status     TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done')),
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 목표 달성 후 하고 싶은 일 또는 보상
+CREATE TABLE IF NOT EXISTS long_goal_rewards (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  goal_id    INTEGER NOT NULL REFERENCES long_goals(id) ON DELETE CASCADE,
+  recipient  TEXT    NOT NULL DEFAULT 'self' CHECK (recipient IN ('wife', 'kids', 'self')),
+  title      TEXT    NOT NULL,
+  notes      TEXT,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 목표와 별도로 관리하는 버킷리스트
+CREATE TABLE IF NOT EXISTS bucket_list_items (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  category     TEXT    NOT NULL DEFAULT 'experience' CHECK (category IN ('achievement', 'experience')),
+  title        TEXT    NOT NULL,
+  notes        TEXT,
+  status       TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done')),
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+  completed_at TEXT
+);

@@ -8,6 +8,7 @@ const TYPE_LABELS = {
   customers: '고객사 티켓',
   calendar: '캘린더',
   worries: '무의식 고민목록',
+  longgoals: '장기목표',
 };
 
 function fileSafeLabel(label) {

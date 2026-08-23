@@ -65,4 +65,12 @@ CREATE TABLE IF NOT EXISTS unconscious_worry_attempts (
 );
 `);
 
+const subgoalColumns = db.prepare("PRAGMA table_info(long_goal_subgoals)").all();
+if (subgoalColumns.length > 0 && !subgoalColumns.some((c) => c.name === 'period_start')) {
+  db.exec('ALTER TABLE long_goal_subgoals ADD COLUMN period_start TEXT');
+}
+if (subgoalColumns.length > 0 && !subgoalColumns.some((c) => c.name === 'period_end')) {
+  db.exec('ALTER TABLE long_goal_subgoals ADD COLUMN period_end TEXT');
+}
+
 module.exports = db;
