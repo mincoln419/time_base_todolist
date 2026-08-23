@@ -8,6 +8,7 @@ import FocusMap from './components/FocusMap/FocusMap';
 import CustomerTickets from './components/CustomerTickets/CustomerTickets';
 import Calendar from './components/Calendar/Calendar';
 import BackupControls from './components/BackupControls';
+import UnconsciousWorries from './components/UnconsciousWorries/UnconsciousWorries';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
 
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'focusmap', label: '포커스 맵' },
   { id: 'customers', label: '고객사 티켓' },
   { id: 'calendar', label: '캘린더' },
+  { id: 'worries', label: '무의식 고민목록' },
 ];
 
 function toDateString(d) {
@@ -171,6 +173,10 @@ export default function App() {
             goToTab('customers');
           }}
         />
+      )}
+
+      {tab === 'worries' && (
+        <UnconsciousWorries />
       )}
     </div>
   );

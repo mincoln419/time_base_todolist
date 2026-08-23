@@ -3,7 +3,15 @@ const db = require('../db/database');
 
 const router = express.Router();
 
-const TABLES = ['tasks', 'schedules', 'focus_map', 'customers', 'tickets'];
+const TABLES = [
+  'tasks',
+  'schedules',
+  'focus_map',
+  'customers',
+  'tickets',
+  'unconscious_worries',
+  'unconscious_worry_attempts',
+];
 
 // GET /api/backup/export — 전체 데이터를 JSON으로 내보내기
 router.get('/export', (req, res) => {
@@ -30,6 +38,8 @@ router.post('/import', (req, res) => {
 
     // 자식(FK 보유) 테이블부터 비운다
     db.exec('DELETE FROM tickets');
+    db.exec('DELETE FROM unconscious_worry_attempts');
+    db.exec('DELETE FROM unconscious_worries');
     db.exec('DELETE FROM customers');
     db.exec('DELETE FROM tasks');
     db.exec('DELETE FROM schedules');
