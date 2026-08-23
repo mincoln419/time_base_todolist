@@ -1,7 +1,7 @@
 const BASE = '/api/backup';
 
-export async function exportBackup() {
-  const res = await fetch(`${BASE}/export`);
+export async function exportBackup(type = 'full') {
+  const res = await fetch(`${BASE}/export?type=${encodeURIComponent(type)}`);
   if (!res.ok) throw new Error('내보내기 실패');
   return res.json();
 }
