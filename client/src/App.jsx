@@ -54,6 +54,7 @@ export default function App() {
   };
 
   const handleDragStart = ({ active }) => setActiveItem(active.data.current);
+  const currentTab = TABS.find((t) => t.id === tab) ?? { id: 'full', label: '전체' };
 
   const handleDragEnd = async ({ active, over }) => {
     setActiveItem(null);
@@ -109,7 +110,7 @@ export default function App() {
           </button>
         ))}
         <div className="ml-auto">
-          <BackupControls />
+          <BackupControls scope={currentTab} />
         </div>
       </nav>
 
