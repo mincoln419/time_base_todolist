@@ -10,6 +10,8 @@ import Calendar from './components/Calendar/Calendar';
 import BackupControls from './components/BackupControls';
 import UnconsciousWorries from './components/UnconsciousWorries/UnconsciousWorries';
 import WebhookSettings from './components/Settings/WebhookSettings';
+import LongGoals from './components/LongGoals/LongGoals';
+
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
 
@@ -20,6 +22,7 @@ const TABS = [
   { id: 'calendar', label: '캘린더' },
   { id: 'worries', label: '무의식 고민목록' },
   { id: 'settings', label: '설정' },
+  { id: 'longgoals', label: '장기목표' },
 ];
 
 function toDateString(d) {
@@ -111,7 +114,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-      <nav className="flex items-center gap-2 p-4 bg-white border-b flex-shrink-0">
+      <nav className="flex items-center gap-2 p-4 bg-white border-b flex-shrink-0 overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -199,10 +202,15 @@ export default function App() {
         <UnconsciousWorries />
       )}
 
+
       {tab === 'settings' && (
         <div className="flex-1 min-h-0 overflow-y-auto">
           <WebhookSettings />
         </div>
+
+      {tab === 'longgoals' && (
+        <LongGoals />
+
       )}
     </div>
   );
