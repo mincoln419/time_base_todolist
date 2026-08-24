@@ -8,6 +8,7 @@ import FocusMap from './components/FocusMap/FocusMap';
 import CustomerTickets from './components/CustomerTickets/CustomerTickets';
 import Calendar from './components/Calendar/Calendar';
 import BackupControls from './components/BackupControls';
+import UnconsciousWorries from './components/UnconsciousWorries/UnconsciousWorries';
 import WebhookSettings from './components/Settings/WebhookSettings';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'focusmap', label: '포커스 맵' },
   { id: 'customers', label: '고객사 티켓' },
   { id: 'calendar', label: '캘린더' },
+  { id: 'worries', label: '무의식 고민목록' },
   { id: 'settings', label: '설정' },
 ];
 
@@ -69,6 +71,7 @@ export default function App() {
   };
 
   const handleDragStart = ({ active }) => setActiveItem(active.data.current);
+  const currentTab = TABS.find((t) => t.id === tab) ?? { id: 'full', label: '전체' };
 
   const handleDragEnd = async ({ active, over }) => {
     setActiveItem(null);
@@ -124,7 +127,7 @@ export default function App() {
           </button>
         ))}
         <div className="ml-auto">
-          <BackupControls />
+          <BackupControls scope={currentTab} />
         </div>
       </nav>
 
@@ -190,6 +193,10 @@ export default function App() {
             goToTab('customers');
           }}
         />
+      )}
+
+      {tab === 'worries' && (
+        <UnconsciousWorries />
       )}
 
       {tab === 'settings' && (
