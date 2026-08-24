@@ -70,13 +70,10 @@ router.patch('/:id/complete', (req, res) => {
   res.json(db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id));
 });
 
-// PATCH /api/worries/:id/conclusion - 완료된 고민의 결론 수정
+// PATCH /api/worries/:id/conclusion - 고민의 결론 저장/수정
 router.patch('/:id/conclusion', (req, res) => {
   const current = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id);
   if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
-  if (!current.completed_at) {
-    return res.status(400).json({ error: '완료된 고민만 결론을 수정할 수 있습니다.' });
-  }
 
   const conclusion = String(req.body?.conclusion ?? '').trim();
   if (conclusion.length > MAX_CONCLUSION_LENGTH) {

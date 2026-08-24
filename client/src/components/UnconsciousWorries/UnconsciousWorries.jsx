@@ -43,6 +43,7 @@ export default function UnconsciousWorries({ onFocusMap }) {
   const [detailWorry, setDetailWorry] = useState(null);
   const [detailEditing, setDetailEditing] = useState(false);
   const [detailDraft, setDetailDraft] = useState('');
+  const [confirmState, setConfirmState] = useState(null);
   const touchStartX = useRef(null);
 
   const {
@@ -119,7 +120,7 @@ export default function UnconsciousWorries({ onFocusMap }) {
   };
 
   const saveDetail = async () => {
-    if (!currentDetail || !detailIsCompleted) return;
+    if (!currentDetail) return;
     try {
       const saved = await editConclusion(currentDetail.id, detailDraft);
       setDetailWorry(saved);
@@ -130,25 +131,34 @@ export default function UnconsciousWorries({ onFocusMap }) {
     }
   };
 
-  const completeFromDetail = async () => {
-    if (!currentDetail) return;
+  const completeWorry = async (id, conclusion) => {
     try {
-      await markComplete(currentDetail.id, detailDraft);
-      closeDetail();
+      await markComplete(id, conclusion);
     } catch (err) {
       alert(err.message);
     }
   };
 
-  const restoreFromDetail = async () => {
-    if (!currentDetail) return;
-    if (!window.confirm('완료된 고민을 다시 진행 중 목록으로 복원할까요?')) return;
+  const restoreWorry = async (id) => {
     try {
-      await restoreCompleted(currentDetail.id);
-      closeDetail();
+      await restoreCompleted(id);
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const requestComplete = (worry) => {
+    setConfirmState({
+      message: '이 고민을 완료 처리할까요?',
+      onConfirm: () => completeWorry(worry.id, worry.conclusion ?? ''),
+    });
+  };
+
+  const requestRestore = (worry) => {
+    setConfirmState({
+      message: '완료된 고민을 다시 진행 중 목록으로 복원할까요?',
+      onConfirm: () => restoreWorry(worry.id),
+    });
   };
 
   if (!loaded) {
@@ -178,16 +188,25 @@ export default function UnconsciousWorries({ onFocusMap }) {
 
           <div className="space-y-2">
             {active.map((worry) => (
-              <div key={worry.id} className="flex items-start gap-3 p-2 rounded border bg-gray-50">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-800 break-words">{worry.title}</p>
-                </div>
+              <div key={worry.id} className="flex items-center gap-2">
                 <button
-                  onClick={() => openDetail(worry)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded bg-white border text-gray-700 hover:bg-gray-100"
+                  onClick={() => requestComplete(worry)}
+                  title="완료"
+                  className="shrink-0 w-11 h-11 rounded-full bg-emerald-500 text-white text-[11px] font-semibold hover:bg-emerald-600 flex items-center justify-center"
                 >
-                  상세
+                  완료
                 </button>
+                <div className="flex-1 flex items-start gap-3 p-2 rounded border bg-gray-50">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-800 break-words">{worry.title}</p>
+                  </div>
+                  <button
+                    onClick={() => openDetail(worry)}
+                    className="px-3 py-1.5 text-xs font-semibold rounded bg-white border text-gray-700 hover:bg-gray-100"
+                  >
+                    상세
+                  </button>
+                </div>
               </div>
             ))}
             {active.length === 0 && (
@@ -327,17 +346,26 @@ export default function UnconsciousWorries({ onFocusMap }) {
           <h2 className="font-semibold text-gray-800 mb-3">완료된 고민 목록</h2>
           <div className="space-y-2">
             {completed.map((worry) => (
-              <div key={worry.id} className="flex items-start gap-3 p-2 rounded border bg-gray-50">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-500 line-through break-words">{worry.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{dateLabel(worry.created_at)}</p>
-                </div>
+              <div key={worry.id} className="flex items-center gap-2">
                 <button
-                  onClick={() => openDetail(worry)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded bg-white border text-gray-700 hover:bg-gray-100"
+                  onClick={() => requestRestore(worry)}
+                  title="복원"
+                  className="shrink-0 w-11 h-11 rounded-full bg-white border text-emerald-600 text-[11px] font-semibold hover:bg-emerald-50 flex items-center justify-center"
                 >
-                  상세
+                  복원
                 </button>
+                <div className="flex-1 flex items-start gap-3 p-2 rounded border bg-gray-50">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-500 line-through break-words">{worry.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{dateLabel(worry.created_at)}</p>
+                  </div>
+                  <button
+                    onClick={() => openDetail(worry)}
+                    className="px-3 py-1.5 text-xs font-semibold rounded bg-white border text-gray-700 hover:bg-gray-100"
+                  >
+                    상세
+                  </button>
+                </div>
               </div>
             ))}
             {completed.length === 0 && (
@@ -366,14 +394,6 @@ export default function UnconsciousWorries({ onFocusMap }) {
               >
                 포커스맵
               </button>
-              {detailIsCompleted && (
-                <button
-                  onClick={restoreFromDetail}
-                  className="px-3 py-1.5 text-xs font-semibold rounded bg-white border text-emerald-600 hover:bg-emerald-50"
-                >
-                  복원
-                </button>
-              )}
               <button
                 onClick={closeDetail}
                 className="px-2 py-1 text-sm rounded text-gray-500 hover:bg-gray-100"
@@ -405,16 +425,16 @@ export default function UnconsciousWorries({ onFocusMap }) {
                     onChange={(e) => setDetailDraft(e.target.value.slice(0, MAX_CONCLUSION_LENGTH))}
                     maxLength={MAX_CONCLUSION_LENGTH}
                     rows="10"
-                    placeholder="완료하기 전에 내가 내린 결론을 기록"
+                    placeholder="생각을 정리하며 결론을 기록"
                     className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
                   />
                   <div className="mt-1 flex items-center justify-between gap-3">
                     <span className="text-[11px] text-gray-400">{detailDraft.length}/{MAX_CONCLUSION_LENGTH}</span>
                     <button
-                      onClick={completeFromDetail}
+                      onClick={saveDetail}
                       className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600"
                     >
-                      완료
+                      저장
                     </button>
                   </div>
                 </>
@@ -453,6 +473,38 @@ export default function UnconsciousWorries({ onFocusMap }) {
                   {currentDetail.conclusion || '기록된 결론이 없습니다.'}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmState && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setConfirmState(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded border bg-white shadow-xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm text-gray-800 mb-4">{confirmState.message}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmState(null)}
+                className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                아니오
+              </button>
+              <button
+                onClick={async () => {
+                  const { onConfirm } = confirmState;
+                  setConfirmState(null);
+                  await onConfirm();
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600"
+              >
+                예
+              </button>
             </div>
           </div>
         </div>
