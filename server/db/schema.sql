@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS unconscious_worries (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   title        TEXT    NOT NULL,
   created_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+  conclusion   TEXT,
   completed_at TEXT
 );
 
