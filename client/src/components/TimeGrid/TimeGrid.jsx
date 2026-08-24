@@ -27,7 +27,7 @@ const WORK_END_MIN = 18 * 60; // 9~18시
 const HOUR_STEP = 60;   // 뷰(빈 슬롯 목록)는 1시간 단위 고정
 const SELECT_STEP = 30; // 셀렉트박스는 30분 단위로 선택 가능
 
-export default function TimeGrid({ schedules, onStatusChange, onTimeChange, onRemove, onAddBlock }) {
+export default function TimeGrid({ schedules, onEditTitle, onStatusChange, onTimeChange, onRemove, onAddBlock }) {
   const [newStart, setNewStart] = useState('');
 
   const isOccupied = (startMin) => schedules.some((s) => startMin >= s.start_min && startMin < s.end_min);
@@ -61,6 +61,7 @@ export default function TimeGrid({ schedules, onStatusChange, onTimeChange, onRe
           <TimeBlock
             key={s.id}
             block={s}
+            onEditTitle={onEditTitle}
             onStatusChange={onStatusChange}
             onTimeChange={onTimeChange}
             onRemove={onRemove}

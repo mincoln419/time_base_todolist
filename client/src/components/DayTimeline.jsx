@@ -46,10 +46,12 @@ export default function DayTimeline({ schedules, date }) {
                   right: '0.5rem',
                 }}
               >
-                <p className="text-xs font-semibold leading-tight truncate">{s.title}</p>
-                <p className="text-xs opacity-60">
-                  {formatMinutes(s.start_min)} – {formatMinutes(s.end_min)}
-                </p>
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-xs font-semibold leading-tight truncate">{s.title}</p>
+                  <p className="text-xs opacity-60 flex-shrink-0 whitespace-nowrap">
+                    {formatMinutes(s.start_min)} – {formatMinutes(s.end_min)}
+                  </p>
+                </div>
               </div>
             );
           })}

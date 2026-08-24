@@ -29,6 +29,15 @@ CREATE TABLE IF NOT EXISTS focus_map (
   updated_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
+-- 알림 웹훅 (Teams 등) — 등록된 URL마다 업무 시작 알림을 전송
+CREATE TABLE IF NOT EXISTS notification_webhooks (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,
+  url        TEXT    NOT NULL,
+  enabled    INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
 -- 고객사
 CREATE TABLE IF NOT EXISTS customers (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
