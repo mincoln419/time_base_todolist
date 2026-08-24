@@ -13,6 +13,8 @@ app.use('/api/focusmap', require('./routes/focusmap'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/tickets', require('./routes/tickets'));
 app.use('/api/backup', require('./routes/backup'));
+app.use('/api/webhooks', require('./routes/webhooks'));
+app.use('/api/notify', require('./routes/notify'));
 
 app.use((err, req, res, next) => {
   console.error(err);

@@ -8,6 +8,7 @@ import FocusMap from './components/FocusMap/FocusMap';
 import CustomerTickets from './components/CustomerTickets/CustomerTickets';
 import Calendar from './components/Calendar/Calendar';
 import BackupControls from './components/BackupControls';
+import WebhookSettings from './components/Settings/WebhookSettings';
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
 
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'focusmap', label: '포커스 맵' },
   { id: 'customers', label: '고객사 티켓' },
   { id: 'calendar', label: '캘린더' },
+  { id: 'settings', label: '설정' },
 ];
 
 function toDateString(d) {
@@ -23,6 +25,8 @@ function toDateString(d) {
 }
 
 const DEFAULT_DURATION_MIN = 60; // 새 블록의 기본 길이 — 1시간
+const MIN_DURATION_STEP = 30; // 남은 시간이 부족할 때 낮출 단위
+const DAY_END_MIN = 24 * 60;
 
 export default function App() {
   const [tab, setTab] = useState('schedule');
@@ -35,7 +39,7 @@ export default function App() {
   }); // 탭을 벗어났다 돌아와도 보던 달을 유지하기 위해 App으로 끌어올린 상태
 
   const { tasks, addTask, removeTask } = useTasks();
-  const { schedules, addSchedule, changeStatus, changeTime, removeSchedule } = useSchedules(date);
+  const { schedules, addSchedule, changeTitle, changeStatus, changeTime, removeSchedule } = useSchedules(date);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -53,6 +57,17 @@ export default function App() {
     setTab(nextTab);
   };
 
+  // 드롭 지점부터 다음 일정(또는 하루 끝)까지 남은 시간에 맞춰 기본 길이를 정한다 — 60분이 다 안 남으면 30분 단위로 축소
+  const getDefaultDuration = (startMin) => {
+    const nextStart = schedules
+      .map((s) => s.start_min)
+      .filter((m) => m > startMin)
+      .reduce((min, m) => Math.min(min, m), DAY_END_MIN);
+    const room = nextStart - startMin;
+    if (room >= DEFAULT_DURATION_MIN) return DEFAULT_DURATION_MIN;
+    return Math.max(MIN_DURATION_STEP, Math.floor(room / MIN_DURATION_STEP) * MIN_DURATION_STEP);
+  };
+
   const handleDragStart = ({ active }) => setActiveItem(active.data.current);
 
   const handleDragEnd = async ({ active, over }) => {
@@ -67,7 +82,7 @@ export default function App() {
       const startMin = dst.type === 'slot' ? dst.startMin : schedules.find((s) => s.id === dst.blockId)?.start_min;
       if (startMin == null) return;
       try {
-        await addSchedule({ title: src.title, start_min: startMin, end_min: startMin + DEFAULT_DURATION_MIN });
+        await addSchedule({ title: src.title, start_min: startMin, end_min: startMin + getDefaultDuration(startMin) });
       } catch (e) {
         alert(e.message);
       }
@@ -126,6 +141,7 @@ export default function App() {
               />
               <TimeGrid
                 schedules={schedules}
+                onEditTitle={changeTitle}
                 onStatusChange={changeStatus}
                 onTimeChange={changeTime}
                 onRemove={removeSchedule}
@@ -174,6 +190,12 @@ export default function App() {
             goToTab('customers');
           }}
         />
+      )}
+
+      {tab === 'settings' && (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <WebhookSettings />
+        </div>
       )}
     </div>
   );
