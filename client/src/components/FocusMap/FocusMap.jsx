@@ -38,9 +38,12 @@ function verdictOf(it) {
 }
 
 // Design Ref: §2.0 — Option C(Pragmatic): 목록/세션 훅만 분리, 레이아웃은 이 컴포넌트가 겸함
-export default function FocusMap({ addTask }) {
+const EMPTY_FOCUS_STATE = { goal: '', items: [], step: 0, cursor: 0, addedTaskIds: [] };
+
+export default function FocusMap({ addTask, focusSeed }) {
   const { list, loaded: listLoaded, error: listError, refresh: refreshList, removeFocusMap } = useFocusMapList();
   const [activeId, setActiveId] = useState(null);
+  const [pendingSeed, setPendingSeed] = useState(null);
   const { state, loaded, error: sessionError, update, commit } = useFocusMap(activeId, { onSaved: refreshList });
   const [behInput, setBehInput] = useState('');
   const [status0, setStatus0] = useState('');
@@ -49,6 +52,20 @@ export default function FocusMap({ addTask }) {
 
   // 활성 세션이 바뀌면 결과 화면의 체크/변환 상태를 초기화
   useEffect(() => { setCheckedIds(new Set()); setConvertStatus(''); }, [activeId]);
+
+  useEffect(() => {
+    if (!focusSeed?.goal) return;
+    setPendingSeed(focusSeed);
+    setActiveId(null);
+    setBehInput('');
+    setStatus0('');
+  }, [focusSeed]);
+
+  useEffect(() => {
+    if (activeId !== null || !pendingSeed) return;
+    update(() => ({ ...EMPTY_FOCUS_STATE, goal: pendingSeed.goal }));
+    setPendingSeed(null);
+  }, [activeId, pendingSeed, update]);
 
   // 저장된 세션의 cursor가 items 범위를 벗어난 경우 다음 단계로 넘어간다
   useEffect(() => {

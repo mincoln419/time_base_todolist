@@ -38,6 +38,7 @@ export default function App() {
   const [date, setDate] = useState(toDateString(new Date()));
   const [activeItem, setActiveItem] = useState(null); // DragOverlay용
   const [ticketFocus, setTicketFocus] = useState(null); // 캘린더 더블클릭 → 고객사 티켓 탭 딥링크
+  const [focusMapSeed, setFocusMapSeed] = useState(null); // 무의식 고민 상세 → 포커스맵 목표 초안
   const [calendarYM, setCalendarYM] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
@@ -75,6 +76,7 @@ export default function App() {
 
   const handleDragStart = ({ active }) => setActiveItem(active.data.current);
   const currentTab = TABS.find((t) => t.id === tab) ?? { id: 'full', label: '전체' };
+  const backupScope = currentTab.id === 'settings' ? { id: 'full', label: '전체' } : currentTab;
 
   const handleDragEnd = async ({ active, over }) => {
     setActiveItem(null);
@@ -115,7 +117,7 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       <nav className="flex items-center gap-2 p-4 bg-white border-b flex-shrink-0 overflow-x-auto">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== 'settings').map((t) => (
           <button
             key={t.id}
             onClick={() => goToTab(t.id)}
@@ -129,9 +131,17 @@ export default function App() {
             {t.label}
           </button>
         ))}
-        <div className="ml-auto">
-          <BackupControls scope={currentTab} />
-        </div>
+        <button
+          onClick={() => goToTab('settings')}
+          className={
+            'ml-auto px-3 py-1 text-sm font-semibold rounded transition-colors flex-shrink-0 ' +
+            (tab === 'settings'
+              ? 'bg-blue-500 text-white hover:bg-blue-600'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
+          }
+        >
+          설정
+        </button>
       </nav>
 
       {tab === 'schedule' && (
@@ -174,7 +184,7 @@ export default function App() {
       {tab === 'focusmap' && (
         <div className="flex-1 min-h-0 overflow-hidden">
           {/* Design Ref: §11.2 — addTask를 prop으로 전달해 App의 useTasks 상태와 공유(별도 useTasks 호출 시 탭 전환 후 스테일 상태 방지) */}
-          <FocusMap addTask={addTask} />
+          <FocusMap addTask={addTask} focusSeed={focusMapSeed} />
         </div>
       )}
 
@@ -199,7 +209,12 @@ export default function App() {
       )}
 
       {tab === 'worries' && (
-        <UnconsciousWorries />
+        <UnconsciousWorries
+          onFocusMap={(worry) => {
+            setFocusMapSeed({ key: `${worry.id}-${Date.now()}`, goal: worry.title });
+            goToTab('focusmap');
+          }}
+        />
       )}
 
 
@@ -212,6 +227,12 @@ export default function App() {
       {tab === 'longgoals' && (
         <LongGoals />
       )}
+
+      <div className="flex-shrink-0 border-t bg-white px-4 py-2">
+        <div className="flex justify-end">
+          <BackupControls scope={backupScope} />
+        </div>
+      </div>
     </div>
   );
 }

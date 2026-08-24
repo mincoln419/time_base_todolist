@@ -20,9 +20,27 @@ export async function createWorry(title) {
   return readJsonOrThrow(res, '고민 추가 실패');
 }
 
-export async function completeWorry(id) {
-  const res = await fetch(`${BASE}/${id}/complete`, { method: 'PATCH' });
+export async function completeWorry(id, conclusion = '') {
+  const res = await fetch(`${BASE}/${id}/complete`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conclusion }),
+  });
   return readJsonOrThrow(res, '고민 완료 처리 실패');
+}
+
+export async function updateWorryConclusion(id, conclusion = '') {
+  const res = await fetch(`${BASE}/${id}/conclusion`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ conclusion }),
+  });
+  return readJsonOrThrow(res, '결론 수정 실패');
+}
+
+export async function restoreWorry(id) {
+  const res = await fetch(`${BASE}/${id}/restore`, { method: 'PATCH' });
+  return readJsonOrThrow(res, '고민 복원 실패');
 }
 
 export async function fetchDailyWorries(date) {

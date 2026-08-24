@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db/database');
 
 const router = express.Router();
+const MAX_CONCLUSION_LENGTH = 2000;
 
 function isDateString(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value ?? '');
@@ -50,10 +51,50 @@ router.patch('/:id/complete', (req, res) => {
   const current = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id);
   if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
 
-  if (!current.completed_at) {
-    db.prepare("UPDATE unconscious_worries SET completed_at = datetime('now', 'localtime') WHERE id = ?")
-      .run(req.params.id);
+  const conclusion = String(req.body?.conclusion ?? '').trim();
+  if (conclusion.length > MAX_CONCLUSION_LENGTH) {
+    return res.status(400).json({ error: '결론은 2000자 이내로 입력해주세요.' });
   }
+
+  if (!current.completed_at) {
+    db.prepare(`
+      UPDATE unconscious_worries
+      SET conclusion = ?, completed_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(conclusion || null, req.params.id);
+  } else {
+    db.prepare('UPDATE unconscious_worries SET conclusion = ? WHERE id = ?')
+      .run(conclusion || null, req.params.id);
+  }
+
+  res.json(db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id));
+});
+
+// PATCH /api/worries/:id/conclusion - 완료된 고민의 결론 수정
+router.patch('/:id/conclusion', (req, res) => {
+  const current = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id);
+  if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
+  if (!current.completed_at) {
+    return res.status(400).json({ error: '완료된 고민만 결론을 수정할 수 있습니다.' });
+  }
+
+  const conclusion = String(req.body?.conclusion ?? '').trim();
+  if (conclusion.length > MAX_CONCLUSION_LENGTH) {
+    return res.status(400).json({ error: '결론은 2000자 이내로 입력해주세요.' });
+  }
+
+  db.prepare('UPDATE unconscious_worries SET conclusion = ? WHERE id = ?')
+    .run(conclusion || null, req.params.id);
+
+  res.json(db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id));
+});
+
+// PATCH /api/worries/:id/restore - 완료된 고민을 활성 목록으로 복원
+router.patch('/:id/restore', (req, res) => {
+  const current = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id);
+  if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
+
+  db.prepare('UPDATE unconscious_worries SET completed_at = NULL WHERE id = ?').run(req.params.id);
 
   res.json(db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id));
 });

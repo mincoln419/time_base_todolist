@@ -5,6 +5,8 @@ import {
   fetchDailyWorries,
   fetchWorries,
   fetchWorryStats,
+  restoreWorry,
+  updateWorryConclusion,
   updateWorryAttempt,
 } from '../api/worries';
 
@@ -40,8 +42,8 @@ export function useWorries(date, calendarYear, calendarMonth) {
     await Promise.all([loadList(), loadDaily(), loadStats()]);
   }, [loadList, loadDaily, loadStats]);
 
-  const markComplete = useCallback(async (id) => {
-    await completeWorry(id);
+  const markComplete = useCallback(async (id, conclusion) => {
+    await completeWorry(id, conclusion);
     await Promise.all([loadList(), loadDaily(), loadStats()]);
   }, [loadList, loadDaily, loadStats]);
 
@@ -49,6 +51,18 @@ export function useWorries(date, calendarYear, calendarMonth) {
     await updateWorryAttempt(id, date, attempted);
     await Promise.all([loadDaily(), loadStats()]);
   }, [date, loadDaily, loadStats]);
+
+  const editConclusion = useCallback(async (id, conclusion) => {
+    const worry = await updateWorryConclusion(id, conclusion);
+    await loadList();
+    return worry;
+  }, [loadList]);
+
+  const restoreCompleted = useCallback(async (id) => {
+    const worry = await restoreWorry(id);
+    await Promise.all([loadList(), loadDaily(), loadStats()]);
+    return worry;
+  }, [loadList, loadDaily, loadStats]);
 
   return {
     active,
@@ -58,6 +72,8 @@ export function useWorries(date, calendarYear, calendarMonth) {
     loaded,
     addWorry,
     markComplete,
+    editConclusion,
+    restoreCompleted,
     setAttempted,
   };
 }

@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS unconscious_worries (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   title        TEXT    NOT NULL,
   created_at   TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+  conclusion   TEXT,
   completed_at TEXT
 );
 
@@ -64,6 +65,11 @@ CREATE TABLE IF NOT EXISTS unconscious_worry_attempts (
   PRIMARY KEY (worry_id, date)
 );
 `);
+
+const worryColumns = db.prepare("PRAGMA table_info(unconscious_worries)").all();
+if (!worryColumns.some((c) => c.name === 'conclusion')) {
+  db.exec('ALTER TABLE unconscious_worries ADD COLUMN conclusion TEXT');
+}
 
 const subgoalColumns = db.prepare("PRAGMA table_info(long_goal_subgoals)").all();
 if (subgoalColumns.length > 0 && !subgoalColumns.some((c) => c.name === 'period_start')) {
