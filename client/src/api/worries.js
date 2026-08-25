@@ -35,7 +35,7 @@ export async function updateWorryConclusion(id, conclusion = '') {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ conclusion }),
   });
-  return readJsonOrThrow(res, '결론 수정 실패');
+  return readJsonOrThrow(res, '메모 수정 실패');
 }
 
 export async function restoreWorry(id) {
