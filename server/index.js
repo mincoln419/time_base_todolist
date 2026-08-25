@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { startScheduler } = require('./scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,4 +26,5 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  startScheduler();
 });

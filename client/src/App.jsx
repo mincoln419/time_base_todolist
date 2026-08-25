@@ -63,6 +63,12 @@ export default function App() {
     setTab(nextTab);
   };
 
+  // 데이터 폴링과 별개로, 탭을 오래 켜둬도 최신 빌드/상태를 반영하도록 30분마다 전체 새로고침
+  useEffect(() => {
+    const timer = setInterval(() => window.location.reload(), 30 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 드롭 지점부터 다음 일정(또는 하루 끝)까지 남은 시간에 맞춰 기본 길이를 정한다 — 60분이 다 안 남으면 30분 단위로 축소
   const getDefaultDuration = (startMin) => {
     const nextStart = schedules

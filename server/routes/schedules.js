@@ -40,16 +40,11 @@ router.post('/', (req, res) => {
 
 // PUT /api/schedules/:id — 상태 또는 시간 수정
 router.put('/:id', (req, res) => {
-  const { title, status, start_min, end_min, expectedStatus } = req.body;
+  const { title, status, start_min, end_min } = req.body;
   const id = req.params.id;
 
   const current = db.prepare('SELECT * FROM schedules WHERE id = ?').get(id);
   if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
-
-  // expectedStatus가 주어졌는데 그 사이 상태가 바뀌었다면(예: 자동 진행중 전환 중 사용자가 완료 처리) 덮어쓰지 않고 현재 값을 그대로 반환
-  if (expectedStatus != null && current.status !== expectedStatus) {
-    return res.json(current);
-  }
 
   if (title != null && !title.trim()) {
     return res.status(400).json({ error: '제목은 비워둘 수 없습니다.' });
