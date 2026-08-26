@@ -150,6 +150,8 @@ export default function LongGoals() {
   const [requirementForm, setRequirementForm] = useState(createEmptyRequirementForm);
   const [rewardForm, setRewardForm] = useState(createEmptyRewardForm);
   const [bucketForm, setBucketForm] = useState(createEmptyBucketForm);
+  const [editingSubgoalId, setEditingSubgoalId] = useState(null);
+  const [subgoalEditForm, setSubgoalEditForm] = useState(createEmptySubgoalForm);
 
   const selectedGoal = goals.find((goal) => goal.id === selectedGoalId) ?? goals[0] ?? null;
 
@@ -182,6 +184,30 @@ export default function LongGoals() {
     try {
       await addSubgoal(selectedGoal.id, subgoalForm);
       setSubgoalForm(createEmptySubgoalForm());
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const startEditSubgoal = (item) => {
+    setEditingSubgoalId(item.id);
+    setSubgoalEditForm({
+      title: item.title ?? '',
+      period_start: dateOnly(item.period_start),
+      period_end: dateOnly(item.period_end),
+      notes: item.notes ?? '',
+    });
+  };
+
+  const cancelEditSubgoal = () => {
+    setEditingSubgoalId(null);
+    setSubgoalEditForm(createEmptySubgoalForm());
+  };
+
+  const saveSubgoalEdit = async (id) => {
+    try {
+      await updateSubgoal(id, subgoalEditForm);
+      cancelEditSubgoal();
     } catch (err) {
       alert(err.message);
     }
@@ -401,39 +427,95 @@ export default function LongGoals() {
                   </form>
                   <div className="space-y-2">
                     {selectedGoal.subgoals.map((item) => (
-                      <div key={item.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50">
-                        <input
-                          type="checkbox"
-                          checked={item.status === 'done'}
-                          onChange={async (e) => {
-                            try {
-                              await updateSubgoal(item.id, { status: e.target.checked ? 'done' : 'open' });
-                            } catch (err) {
-                              alert(err.message);
-                            }
-                          }}
-                          className="mt-1 h-4 w-4"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className={'text-sm break-words ' + (item.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800')}>
-                            {item.title}
+                      editingSubgoalId === item.id ? (
+                        <div key={item.id} className="p-2 rounded border bg-blue-50 space-y-2">
+                          <input
+                            value={subgoalEditForm.title}
+                            onChange={(e) => setSubgoalEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                            placeholder="세부 목표"
+                            className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="date"
+                              value={subgoalEditForm.period_start}
+                              onChange={(e) => setSubgoalEditForm((prev) => ({ ...prev, period_start: e.target.value }))}
+                              className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                            <input
+                              type="date"
+                              value={subgoalEditForm.period_end}
+                              onChange={(e) => setSubgoalEditForm((prev) => ({ ...prev, period_end: e.target.value }))}
+                              className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
                           </div>
-                          <div className="text-xs text-gray-400">{periodLabel(item.period_start, item.period_end)}</div>
-                          {item.notes && <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">{item.notes}</div>}
+                          <input
+                            value={subgoalEditForm.notes}
+                            onChange={(e) => setSubgoalEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                            placeholder="메모"
+                            className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={cancelEditSubgoal}
+                              className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            >
+                              취소
+                            </button>
+                            <button
+                              onClick={() => saveSubgoalEdit(item.id)}
+                              disabled={!subgoalEditForm.title.trim()}
+                              className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              저장
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await removeSubgoal(item.id);
-                            } catch (err) {
-                              alert(err.message);
-                            }
-                          }}
-                          className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
-                        >
-                          삭제
-                        </button>
-                      </div>
+                      ) : (
+                        <div key={item.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50">
+                          <input
+                            type="checkbox"
+                            checked={item.status === 'done'}
+                            onChange={async (e) => {
+                              try {
+                                await updateSubgoal(item.id, { status: e.target.checked ? 'done' : 'open' });
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }}
+                            className="mt-1 h-4 w-4"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className={'text-sm break-words ' + (item.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800')}>
+                              {item.title}
+                            </div>
+                            <div className="text-xs text-gray-400">{periodLabel(item.period_start, item.period_end)}</div>
+                            {item.notes && <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">{item.notes}</div>}
+                          </div>
+                          <button
+                            onClick={() => startEditSubgoal(item)}
+                            title="수정"
+                            className="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await removeSubgoal(item.id);
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }}
+                            className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )
                     ))}
                   </div>
                 </section>
