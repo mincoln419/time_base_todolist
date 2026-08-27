@@ -19,6 +19,9 @@ const BACKUP_TYPES = {
       'long_goal_subgoals',
       'long_goals',
       'bucket_list_items',
+      'warroom_rails',
+      'warroom_members',
+      'warroom_member_tasks',
     ],
     deleteTables: [
       'tickets',
@@ -33,6 +36,9 @@ const BACKUP_TYPES = {
       'tasks',
       'schedules',
       'focus_map',
+      'warroom_member_tasks',
+      'warroom_members',
+      'warroom_rails',
     ],
   },
   schedule: {
@@ -76,6 +82,11 @@ const BACKUP_TYPES = {
       'long_goals',
       'bucket_list_items',
     ],
+  },
+  warroom: {
+    label: '업무 배치 보드',
+    tables: ['warroom_rails', 'warroom_members', 'warroom_member_tasks'],
+    deleteTables: ['warroom_member_tasks', 'warroom_members', 'warroom_rails'],
   },
 };
 

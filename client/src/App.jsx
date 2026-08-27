@@ -11,6 +11,7 @@ import BackupControls from './components/BackupControls';
 import UnconsciousWorries from './components/UnconsciousWorries/UnconsciousWorries';
 import WebhookSettings from './components/Settings/WebhookSettings';
 import LongGoals from './components/LongGoals/LongGoals';
+import WarRoomBoard from './components/WarRoomBoard/WarRoomBoard';
 
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'worries', label: '무의식 고민목록' },
   { id: 'settings', label: '설정' },
   { id: 'longgoals', label: '장기목표' },
+  { id: 'warroom', label: '업무 배치 보드' },
 ];
 
 function toDateString(d) {
@@ -226,6 +228,10 @@ export default function App() {
 
       {tab === 'longgoals' && (
         <LongGoals />
+      )}
+
+      {tab === 'warroom' && (
+        <WarRoomBoard />
       )}
 
       <div className="flex-shrink-0 border-t bg-white px-4 py-2">
