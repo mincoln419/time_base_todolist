@@ -92,6 +92,15 @@ export async function createReward(goalId, payload) {
   return readJsonOrThrow(res, '보상 추가 실패');
 }
 
+export async function updateReward(id, payload) {
+  const res = await fetch(`${BASE}/rewards/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return readJsonOrThrow(res, '보상 수정 실패');
+}
+
 export async function deleteReward(id) {
   const res = await fetch(`${BASE}/rewards/${id}`, { method: 'DELETE' });
   return readJsonOrThrow(res, '보상 삭제 실패');

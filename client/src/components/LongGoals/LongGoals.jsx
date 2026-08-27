@@ -138,6 +138,7 @@ export default function LongGoals() {
     updateRequirement,
     removeRequirement,
     addReward,
+    updateReward,
     removeReward,
     addBucketItem,
     updateBucketItem,
@@ -152,6 +153,10 @@ export default function LongGoals() {
   const [bucketForm, setBucketForm] = useState(createEmptyBucketForm);
   const [editingSubgoalId, setEditingSubgoalId] = useState(null);
   const [subgoalEditForm, setSubgoalEditForm] = useState(createEmptySubgoalForm);
+  const [editingRequirementId, setEditingRequirementId] = useState(null);
+  const [requirementEditForm, setRequirementEditForm] = useState(createEmptyRequirementForm);
+  const [editingRewardId, setEditingRewardId] = useState(null);
+  const [rewardEditForm, setRewardEditForm] = useState(createEmptyRewardForm);
 
   const selectedGoal = goals.find((goal) => goal.id === selectedGoalId) ?? goals[0] ?? null;
 
@@ -230,6 +235,44 @@ export default function LongGoals() {
     try {
       await addReward(selectedGoal.id, rewardForm);
       setRewardForm(createEmptyRewardForm());
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const startEditRequirement = (item) => {
+    setEditingRequirementId(item.id);
+    setRequirementEditForm({ kind: item.kind, title: item.title ?? '', notes: item.notes ?? '' });
+  };
+
+  const cancelEditRequirement = () => {
+    setEditingRequirementId(null);
+    setRequirementEditForm(createEmptyRequirementForm());
+  };
+
+  const saveRequirementEdit = async (id) => {
+    try {
+      await updateRequirement(id, requirementEditForm);
+      cancelEditRequirement();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const startEditReward = (item) => {
+    setEditingRewardId(item.id);
+    setRewardEditForm({ recipient: item.recipient, title: item.title ?? '', notes: item.notes ?? '' });
+  };
+
+  const cancelEditReward = () => {
+    setEditingRewardId(null);
+    setRewardEditForm(createEmptyRewardForm());
+  };
+
+  const saveRewardEdit = async (id) => {
+    try {
+      await updateReward(id, rewardEditForm);
+      cancelEditReward();
     } catch (err) {
       alert(err.message);
     }
@@ -550,43 +593,96 @@ export default function LongGoals() {
                   </form>
                   <div className="space-y-2">
                     {selectedGoal.requirements.map((item) => (
-                      <div key={item.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50">
-                        <input
-                          type="checkbox"
-                          checked={item.status === 'done'}
-                          onChange={async (e) => {
-                            try {
-                              await updateRequirement(item.id, { status: e.target.checked ? 'done' : 'open' });
-                            } catch (err) {
-                              alert(err.message);
-                            }
-                          }}
-                          className="mt-1 h-4 w-4"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="px-2 py-0.5 text-[11px] rounded bg-white border text-gray-500">
-                              {REQUIREMENT_LABELS[item.kind]}
-                            </span>
-                            <span className={'text-sm break-words ' + (item.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800')}>
-                              {item.title}
-                            </span>
+                      editingRequirementId === item.id ? (
+                        <div key={item.id} className="p-2 rounded border bg-blue-50 space-y-2">
+                          <div className="grid grid-cols-1 md:grid-cols-[110px_minmax(0,1fr)] gap-2">
+                            <select
+                              value={requirementEditForm.kind}
+                              onChange={(e) => setRequirementEditForm((prev) => ({ ...prev, kind: e.target.value }))}
+                              className="px-3 py-2 text-sm border rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            >
+                              {Object.entries(REQUIREMENT_LABELS).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
+                            </select>
+                            <input
+                              value={requirementEditForm.title}
+                              onChange={(e) => setRequirementEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                              placeholder="작업, 업무, 조건"
+                              className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
                           </div>
-                          {item.notes && <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">{item.notes}</div>}
+                          <input
+                            value={requirementEditForm.notes}
+                            onChange={(e) => setRequirementEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                            placeholder="메모"
+                            className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={cancelEditRequirement}
+                              className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            >
+                              취소
+                            </button>
+                            <button
+                              onClick={() => saveRequirementEdit(item.id)}
+                              disabled={!requirementEditForm.title.trim()}
+                              className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              저장
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await removeRequirement(item.id);
-                            } catch (err) {
-                              alert(err.message);
-                            }
-                          }}
-                          className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
-                        >
-                          삭제
-                        </button>
-                      </div>
+                      ) : (
+                        <div key={item.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50">
+                          <input
+                            type="checkbox"
+                            checked={item.status === 'done'}
+                            onChange={async (e) => {
+                              try {
+                                await updateRequirement(item.id, { status: e.target.checked ? 'done' : 'open' });
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }}
+                            className="mt-1 h-4 w-4"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-2 py-0.5 text-[11px] rounded bg-white border text-gray-500">
+                                {REQUIREMENT_LABELS[item.kind]}
+                              </span>
+                              <span className={'text-sm break-words ' + (item.status === 'done' ? 'line-through text-gray-400' : 'text-gray-800')}>
+                                {item.title}
+                              </span>
+                            </div>
+                            {item.notes && <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">{item.notes}</div>}
+                          </div>
+                          <button
+                            onClick={() => startEditRequirement(item)}
+                            title="수정"
+                            className="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await removeRequirement(item.id);
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }}
+                            className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )
                     ))}
                   </div>
                 </section>
@@ -626,26 +722,77 @@ export default function LongGoals() {
                       <h3 className="text-sm font-semibold text-gray-700 mb-2">{label}</h3>
                       <div className="space-y-2">
                         {selectedGoal.rewards.filter((item) => item.recipient === recipient).map((item) => (
-                          <div key={item.id} className="p-2 rounded bg-white border">
-                            <div className="flex items-start gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm text-gray-800 break-words">{item.title}</div>
-                                {item.notes && <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">{item.notes}</div>}
-                              </div>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    await removeReward(item.id);
-                                  } catch (err) {
-                                    alert(err.message);
-                                  }
-                                }}
-                                className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
+                          editingRewardId === item.id ? (
+                            <div key={item.id} className="p-2 rounded border bg-blue-50 space-y-2">
+                              <select
+                                value={rewardEditForm.recipient}
+                                onChange={(e) => setRewardEditForm((prev) => ({ ...prev, recipient: e.target.value }))}
+                                className="w-full px-3 py-2 text-sm border rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                               >
-                                삭제
-                              </button>
+                                {Object.entries(REWARD_LABELS).map(([value, rlabel]) => (
+                                  <option key={value} value={value}>{rlabel}</option>
+                                ))}
+                              </select>
+                              <input
+                                value={rewardEditForm.title}
+                                onChange={(e) => setRewardEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                                placeholder="하고 싶은 일 또는 보상"
+                                className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                              />
+                              <input
+                                value={rewardEditForm.notes}
+                                onChange={(e) => setRewardEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                                placeholder="메모"
+                                className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                              />
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={cancelEditReward}
+                                  className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                >
+                                  취소
+                                </button>
+                                <button
+                                  onClick={() => saveRewardEdit(item.id)}
+                                  disabled={!rewardEditForm.title.trim()}
+                                  className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  저장
+                                </button>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div key={item.id} className="p-2 rounded bg-white border">
+                              <div className="flex items-start gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm text-gray-800 break-words">{item.title}</div>
+                                  {item.notes && <div className="mt-1 text-xs text-gray-500 whitespace-pre-wrap">{item.notes}</div>}
+                                </div>
+                                <button
+                                  onClick={() => startEditReward(item)}
+                                  title="수정"
+                                  className="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await removeReward(item.id);
+                                    } catch (err) {
+                                      alert(err.message);
+                                    }
+                                  }}
+                                  className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
+                                >
+                                  삭제
+                                </button>
+                              </div>
+                            </div>
+                          )
                         ))}
                       </div>
                     </div>

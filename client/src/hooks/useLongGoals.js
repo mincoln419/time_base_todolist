@@ -14,6 +14,7 @@ import {
   updateBucketItem,
   updateLongGoal,
   updateRequirement,
+  updateReward,
   updateSubgoal,
 } from '../api/longgoals';
 
@@ -51,6 +52,7 @@ export function useLongGoals() {
     updateRequirement: (id, payload) => reloadAfter(() => updateRequirement(id, payload)),
     removeRequirement: (id) => reloadAfter(() => deleteRequirement(id)),
     addReward: (goalId, payload) => reloadAfter(() => createReward(goalId, payload)),
+    updateReward: (id, payload) => reloadAfter(() => updateReward(id, payload)),
     removeReward: (id) => reloadAfter(() => deleteReward(id)),
     addBucketItem: (payload) => reloadAfter(() => createBucketItem(payload)),
     updateBucketItem: (id, payload) => reloadAfter(() => updateBucketItem(id, payload)),
