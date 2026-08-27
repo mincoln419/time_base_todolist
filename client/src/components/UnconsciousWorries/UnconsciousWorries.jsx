@@ -1,8 +1,78 @@
 import { useMemo, useRef, useState } from 'react';
+import { Marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { useWorries } from '../../hooks/useWorries';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MAX_CONCLUSION_LENGTH = 2000;
+
+// GitHub 스타일 체크박스: disabled 속성을 빼고 순번(data-task-index)을 매겨
+// 클릭 시 몇 번째 체크박스인지 식별할 수 있게 한다.
+let taskCheckboxCount = 0;
+const memoMarked = new Marked({ gfm: true, breaks: true });
+memoMarked.use({
+  renderer: {
+    checkbox({ checked }) {
+      const index = taskCheckboxCount;
+      taskCheckboxCount += 1;
+      return `<input type="checkbox" data-task-index="${index}"${checked ? ' checked' : ''}>`;
+    },
+  },
+});
+
+const TASK_LINE_RE = /^(\s*)(?:([-*+]|\d+[.)])\s+)?\[([ xX])\]\s+(\S.*)$/;
+
+// GitHub 마크다운은 체크박스 앞에 리스트 기호(- * + 1.)가 있어야 인식한다.
+// "[x] 할일"처럼 기호 없이 적은 줄도 체크박스로 보이도록 파싱 전에 "- "를 붙여준다.
+function normalizeTaskLines(memo) {
+  const lines = (memo ?? '').split('\n');
+  let inFence = false;
+  return lines
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) return line;
+      const m = line.match(TASK_LINE_RE);
+      if (!m) return line;
+      const [, indent, marker] = m;
+      return marker ? line : `${indent}- ${line.trim()}`;
+    })
+    .join('\n');
+}
+
+function renderMemoHtml(memo) {
+  taskCheckboxCount = 0;
+  const html = memoMarked.parse(normalizeTaskLines(memo));
+  return DOMPurify.sanitize(html, { ADD_ATTR: ['data-task-index'] });
+}
+
+// 렌더링된 체크박스 순서(N번째)를 원본 텍스트의 줄 번호로 매핑한다.
+function findTaskLineIndices(memo) {
+  const lines = (memo ?? '').split('\n');
+  const indices = [];
+  let inFence = false;
+  lines.forEach((line, i) => {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      return;
+    }
+    if (inFence) return;
+    if (TASK_LINE_RE.test(line)) indices.push(i);
+  });
+  return indices;
+}
+
+function toggleTaskLine(memo, lineIndex) {
+  const lines = (memo ?? '').split('\n');
+  const line = lines[lineIndex];
+  if (line == null) return memo;
+  lines[lineIndex] = /\[ \]/.test(line)
+    ? line.replace('[ ]', '[x]')
+    : line.replace(/\[[xX]\]/, '[ ]');
+  return lines.join('\n');
+}
 
 function toDateString(date) {
   const y = date.getFullYear();
@@ -105,7 +175,6 @@ export default function UnconsciousWorries({ onFocusMap }) {
   const currentDetail = detailWorry
     ? [...active, ...completed].find((worry) => worry.id === detailWorry.id) ?? detailWorry
     : null;
-  const detailIsCompleted = Boolean(currentDetail?.completed_at);
 
   const openDetail = (worry) => {
     setDetailWorry(worry);
@@ -129,6 +198,28 @@ export default function UnconsciousWorries({ onFocusMap }) {
     } catch (err) {
       alert(err.message);
     }
+  };
+
+  const toggleMemoCheckbox = async (taskIndex) => {
+    if (!currentDetail) return;
+    const lineIndices = findTaskLineIndices(currentDetail.conclusion);
+    const lineIndex = lineIndices[taskIndex];
+    if (lineIndex == null) return;
+    const newMemo = toggleTaskLine(currentDetail.conclusion, lineIndex);
+    try {
+      const saved = await editConclusion(currentDetail.id, newMemo);
+      setDetailWorry(saved);
+      setDetailDraft(saved.conclusion ?? '');
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleMemoClick = (e) => {
+    const checkbox = e.target.closest('input[type="checkbox"][data-task-index]');
+    if (!checkbox) return;
+    e.preventDefault();
+    toggleMemoCheckbox(Number(checkbox.dataset.taskIndex));
   };
 
   const completeWorry = async (id, conclusion) => {
@@ -404,8 +495,8 @@ export default function UnconsciousWorries({ onFocusMap }) {
 
             <div className="p-4">
               <div className="flex items-center justify-between gap-3 mb-2">
-                <h4 className="text-sm font-semibold text-gray-700">결론</h4>
-                {detailIsCompleted && !detailEditing && (
+                <h4 className="text-sm font-semibold text-gray-700">메모</h4>
+                {!detailEditing && (
                   <button
                     onClick={() => {
                       setDetailDraft(currentDetail.conclusion ?? '');
@@ -418,34 +509,15 @@ export default function UnconsciousWorries({ onFocusMap }) {
                 )}
               </div>
 
-              {!detailIsCompleted ? (
+              {detailEditing ? (
                 <>
                   <textarea
                     value={detailDraft}
                     onChange={(e) => setDetailDraft(e.target.value.slice(0, MAX_CONCLUSION_LENGTH))}
                     maxLength={MAX_CONCLUSION_LENGTH}
                     rows="10"
-                    placeholder="생각을 정리하며 결론을 기록"
-                    className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
-                  />
-                  <div className="mt-1 flex items-center justify-between gap-3">
-                    <span className="text-[11px] text-gray-400">{detailDraft.length}/{MAX_CONCLUSION_LENGTH}</span>
-                    <button
-                      onClick={saveDetail}
-                      className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600"
-                    >
-                      저장
-                    </button>
-                  </div>
-                </>
-              ) : detailEditing ? (
-                <>
-                  <textarea
-                    value={detailDraft}
-                    onChange={(e) => setDetailDraft(e.target.value.slice(0, MAX_CONCLUSION_LENGTH))}
-                    maxLength={MAX_CONCLUSION_LENGTH}
-                    rows="10"
-                    className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                    placeholder="마크다운 문법으로 메모를 기록"
+                    className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none font-mono"
                   />
                   <div className="mt-1 flex items-center justify-between gap-3">
                     <span className="text-[11px] text-gray-400">{detailDraft.length}/{MAX_CONCLUSION_LENGTH}</span>
@@ -468,9 +540,15 @@ export default function UnconsciousWorries({ onFocusMap }) {
                     </div>
                   </div>
                 </>
+              ) : currentDetail.conclusion ? (
+                <div
+                  className="min-h-[160px] rounded border bg-gray-50 p-3 text-sm text-gray-700 markdown-body"
+                  onClick={handleMemoClick}
+                  dangerouslySetInnerHTML={{ __html: renderMemoHtml(currentDetail.conclusion) }}
+                />
               ) : (
-                <div className="min-h-[160px] rounded border bg-gray-50 p-3 text-sm text-gray-700 whitespace-pre-wrap">
-                  {currentDetail.conclusion || '기록된 결론이 없습니다.'}
+                <div className="min-h-[160px] rounded border bg-gray-50 p-3 text-sm text-gray-400">
+                  기록된 메모가 없습니다.
                 </div>
               )}
             </div>

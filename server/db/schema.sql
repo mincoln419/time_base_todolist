@@ -121,6 +121,33 @@ CREATE TABLE IF NOT EXISTS long_goal_rewards (
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
+-- 업무 배치 보드: 레일(업무/프로젝트 단위) — 하단에 addable
+CREATE TABLE IF NOT EXISTS warroom_rails (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 업무 배치 보드: 인원 카드 (rail_id NULL = 미배치, 상단 로스터에 표시)
+CREATE TABLE IF NOT EXISTS warroom_members (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,
+  rail_id    INTEGER REFERENCES warroom_rails(id) ON DELETE SET NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 인원별 매핑된 업무 태그 (여러 개 가능, is_primary=1인 태그는 멤버당 최대 1개)
+CREATE TABLE IF NOT EXISTS warroom_member_tasks (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  member_id  INTEGER NOT NULL REFERENCES warroom_members(id) ON DELETE CASCADE,
+  title      TEXT    NOT NULL,
+  is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0, 1)),
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
 -- 목표와 별도로 관리하는 버킷리스트
 CREATE TABLE IF NOT EXISTS bucket_list_items (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,

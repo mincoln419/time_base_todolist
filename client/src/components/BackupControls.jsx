@@ -9,6 +9,7 @@ const TYPE_LABELS = {
   calendar: '캘린더',
   worries: '무의식 고민목록',
   longgoals: '장기목표',
+  warroom: '업무 배치 보드',
 };
 
 function fileSafeLabel(label) {

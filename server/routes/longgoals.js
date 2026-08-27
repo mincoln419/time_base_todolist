@@ -143,10 +143,18 @@ router.post('/goals/:goalId/subgoals', handleRoute((req, res) => {
 router.patch('/subgoals/:id', handleRoute((req, res) => {
   const current = db.prepare('SELECT * FROM long_goal_subgoals WHERE id = ?').get(req.params.id);
   if (!current) return res.status(404).json({ error: '세부 목표를 찾을 수 없습니다.' });
+  const title = req.body.title == null ? current.title : requireTitle(req.body.title, '세부 목표를 입력해주세요.');
+  const notes = req.body.notes == null ? current.notes : optionalText(req.body.notes);
+  const periodStart = req.body.period_start == null ? current.period_start : optionalText(req.body.period_start);
+  const periodEnd = req.body.period_end == null ? current.period_end : optionalText(req.body.period_end);
   const status = req.body.status ?? current.status;
   if (!VALID_ITEM_STATUSES.has(status)) return res.status(400).json({ error: '올바른 상태가 아닙니다.' });
 
-  db.prepare('UPDATE long_goal_subgoals SET status = ? WHERE id = ?').run(status, req.params.id);
+  db.prepare(`
+    UPDATE long_goal_subgoals
+    SET title = ?, notes = ?, period_start = ?, period_end = ?, status = ?
+    WHERE id = ?
+  `).run(title, notes, periodStart, periodEnd, status, req.params.id);
   res.json(db.prepare('SELECT * FROM long_goal_subgoals WHERE id = ?').get(req.params.id));
 }));
 
@@ -175,10 +183,16 @@ router.post('/goals/:goalId/requirements', handleRoute((req, res) => {
 router.patch('/requirements/:id', handleRoute((req, res) => {
   const current = db.prepare('SELECT * FROM long_goal_requirements WHERE id = ?').get(req.params.id);
   if (!current) return res.status(404).json({ error: '필요 항목을 찾을 수 없습니다.' });
+  const title = req.body.title == null ? current.title : requireTitle(req.body.title, '필요 항목을 입력해주세요.');
+  const kind = req.body.kind == null
+    ? current.kind
+    : (VALID_REQUIREMENT_KINDS.has(req.body.kind) ? req.body.kind : current.kind);
+  const notes = req.body.notes == null ? current.notes : optionalText(req.body.notes);
   const status = req.body.status ?? current.status;
   if (!VALID_ITEM_STATUSES.has(status)) return res.status(400).json({ error: '올바른 상태가 아닙니다.' });
 
-  db.prepare('UPDATE long_goal_requirements SET status = ? WHERE id = ?').run(status, req.params.id);
+  db.prepare('UPDATE long_goal_requirements SET title = ?, kind = ?, notes = ?, status = ? WHERE id = ?')
+    .run(title, kind, notes, status, req.params.id);
   res.json(db.prepare('SELECT * FROM long_goal_requirements WHERE id = ?').get(req.params.id));
 }));
 
@@ -201,6 +215,20 @@ router.post('/goals/:goalId/rewards', handleRoute((req, res) => {
   `).run(goalId, recipient, title, notes);
 
   res.status(201).json(db.prepare('SELECT * FROM long_goal_rewards WHERE id = ?').get(result.lastInsertRowid));
+}));
+
+router.patch('/rewards/:id', handleRoute((req, res) => {
+  const current = db.prepare('SELECT * FROM long_goal_rewards WHERE id = ?').get(req.params.id);
+  if (!current) return res.status(404).json({ error: '보상 항목을 찾을 수 없습니다.' });
+  const title = req.body.title == null ? current.title : requireTitle(req.body.title, '보상 내용을 입력해주세요.');
+  const recipient = req.body.recipient == null
+    ? current.recipient
+    : (VALID_REWARD_RECIPIENTS.has(req.body.recipient) ? req.body.recipient : current.recipient);
+  const notes = req.body.notes == null ? current.notes : optionalText(req.body.notes);
+
+  db.prepare('UPDATE long_goal_rewards SET title = ?, recipient = ?, notes = ? WHERE id = ?')
+    .run(title, recipient, notes, req.params.id);
+  res.json(db.prepare('SELECT * FROM long_goal_rewards WHERE id = ?').get(req.params.id));
 }));
 
 router.delete('/rewards/:id', handleRoute((req, res) => {
