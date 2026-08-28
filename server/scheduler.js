@@ -4,7 +4,11 @@ const { sendWorkStartNotification } = require('./services/notifications');
 const CHECK_INTERVAL_MS = 60 * 1000; // 1분마다 시작 시간이 지난 '예정' 일정을 점검
 
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 async function checkAndAdvance() {
