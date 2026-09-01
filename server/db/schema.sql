@@ -148,6 +148,21 @@ CREATE TABLE IF NOT EXISTS warroom_member_tasks (
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
+-- 데일리노트: 그날 떠오른 아이디어를 키워드/카테고리/연관 키워드/항목 + 마크다운 본문으로 기록
+CREATE TABLE IF NOT EXISTS daily_notes (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  date             TEXT    NOT NULL,
+  keyword          TEXT    NOT NULL,
+  category         TEXT,
+  related_keywords TEXT,
+  item             TEXT,
+  content          TEXT,
+  created_at       TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+  updated_at       TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
+
 -- 목표와 별도로 관리하는 버킷리스트
 CREATE TABLE IF NOT EXISTS bucket_list_items (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
