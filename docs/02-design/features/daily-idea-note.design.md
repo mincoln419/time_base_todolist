@@ -119,9 +119,8 @@ DailyNote
 {
   id: number,
   date: string,               // "YYYY-MM-DD", 미지정 시 서버가 오늘 날짜로 채움
-  keyword: string,             // 필수
+  keyword: string,             // 필수, 해시태그 스타일 다중 값을 쉼표(,)로 구분해 저장 (예: "습관, 아침루틴") — 1개 이상 필수
   category: string | null,     // 선택
-  related_keywords: string | null, // 쉼표(,)로 구분된 다중 키워드 원문 그대로 저장, 예: "습관, 아침루틴"
   item: string | null,         // 선택 — 노트 제목/항목명, 목록·캘린더·마인드맵의 표시 라벨로 사용
   content: string | null,      // 마크다운 원문, 최대 2000자
   created_at: string,
@@ -129,8 +128,10 @@ DailyNote
 }
 ```
 
-- 표시 라벨 우선순위: `item` → 없으면 `keyword` (목록/캘린더/마인드맵 공통 규칙, §5.3에서 `noteLabel(note)` 함수로 통일)
-- `related_keywords`는 별도 정규화 테이블 없이 문자열 그대로 저장하고, 연결 계산 시에만 `split(',').map(s => s.trim()).filter(Boolean)`으로 파싱한다(Plan §7.2 결정 재확인).
+> **2026-09-01 amendment**: 원래 "키워드"(단일 필수)+"연관 키워드"(선택, 쉼표 다중) 2필드였으나, 사용자 요청으로 "키워드" 1필드가 해시태그처럼 다중 값을 갖도록 통합했다. 노트 하나가 여러 키워드를 가지고 하나의 키워드가 여러 노트에 걸릴 수 있어, 노트 간 마인드맵 연결이 자연스러운 n:n 관계가 된다. `related_keywords` 컬럼은 제거되었다(§3.3 참조).
+
+- 표시 라벨 우선순위: `item` → 없으면 `keyword`의 첫 번째 태그 (목록/캘린더/마인드맵 공통 규칙, §5.3에서 `noteLabel(note)`/`noteKeywords(note)` 함수로 통일)
+- `keyword`는 별도 정규화 테이블(예: `daily_note_keywords` n:n 조인 테이블) 없이 쉼표 구분 문자열 그대로 저장하고, 표시·연결 계산 시에만 `split(',').map(s => s.trim()).filter(Boolean)`으로 파싱한다 — 로컬 단일 사용자 SQLite 앱 규모에서 정규화 테이블은 과설계로 판단(Plan §7.2 결정과 동일한 원칙 적용)
 
 ### 3.2 Entity Relationships
 
@@ -148,7 +149,6 @@ CREATE TABLE IF NOT EXISTS daily_notes (
   date             TEXT    NOT NULL,
   keyword          TEXT    NOT NULL,
   category         TEXT,
-  related_keywords TEXT,
   item             TEXT,
   content          TEXT,
   created_at       TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
@@ -158,7 +158,9 @@ CREATE TABLE IF NOT EXISTS daily_notes (
 CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 ```
 
-> 신규 테이블이므로 마이그레이션/이관 이슈 없음. `schema.sql`은 서버 시작 시 `CREATE TABLE IF NOT EXISTS`로 매번 실행되는 기존 방식(`db.exec()`)을 그대로 따르므로 `DROP TABLE`이 필요 없다.
+> 신규 테이블이므로 최초 생성 시 마이그레이션/이관 이슈 없음. `schema.sql`은 서버 시작 시 `CREATE TABLE IF NOT EXISTS`로 매번 실행되는 기존 방식(`db.exec()`)을 그대로 따르므로 `DROP TABLE`이 필요 없다.
+>
+> **2026-09-01 amendment**: `related_keywords` 컬럼 제거는 `CREATE TABLE IF NOT EXISTS`만으로는 기존 테이블에 반영되지 않으므로, `server/db/database.js`에 다른 마이그레이션들과 동일한 패턴(PRAGMA table_info로 구버전 컬럼 존재 확인 후 처리)으로 1회성 마이그레이션을 추가했다: `related_keywords` 컬럼이 남아있으면 그 값을 `keyword`에 병합(쉼표 join, 중복 제거)한 뒤 `ALTER TABLE ... DROP COLUMN related_keywords`로 제거한다.
 
 ---
 
@@ -170,6 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 |--------|------|-------------|------|
 | GET | `/api/daily-notes` | 노트 목록 조회 (`date`/`month` 쿼리로 필터 가능) | 없음 (로컬 단일 사용자) |
 | POST | `/api/daily-notes` | 새 노트 생성 | 없음 |
+| POST | `/api/daily-notes/extract-tags` | (2026-09-01 추가) 본문에서 AI로 카테고리/키워드 추출, DB 미저장 | 없음 (서버가 보관한 Anthropic API 키로 서버→Anthropic만 인증) |
 | PUT | `/api/daily-notes/:id` | 노트 수정 | 없음 |
 | DELETE | `/api/daily-notes/:id` | 노트 삭제 | 없음 |
 
@@ -185,9 +188,8 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
   {
     "id": 5,
     "date": "2026-08-30",
-    "keyword": "아침 루틴",
+    "keyword": "아침 루틴, 운동, 명상",
     "category": "습관",
-    "related_keywords": "운동, 명상",
     "item": "5분 스트레칭 아이디어",
     "content": "출근 전 5분 스트레칭...",
     "created_at": "2026-08-30 08:10:00",
@@ -203,22 +205,41 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 ```json
 {
   "date": "2026-08-30",
-  "keyword": "아침 루틴",
+  "keyword": "아침 루틴, 운동, 명상",
   "category": "습관",
-  "related_keywords": "운동, 명상",
   "item": "5분 스트레칭 아이디어",
   "content": "출근 전 5분 스트레칭..."
 }
 ```
 - `date` 생략 시 서버가 오늘 날짜(`localtime`)로 채움
-- `keyword` 필수, trim 후 빈 문자열이면 400
+- `keyword`는 쉼표(,)로 구분된 해시태그 스타일 다중 값 — 서버가 각 토큰을 trim·중복 제거해 다시 쉼표로 합쳐 저장(`normalizeKeyword`), 유효 토큰이 1개도 없으면 400
 - `content` 2000자 초과 시 400
 
-**Response (201 Created)**: 저장된 전체 객체(`id`, `created_at`, `updated_at` 포함)
+**Response (201 Created)**: 저장된 전체 객체(`id`, `created_at`, `updated_at` 포함, `keyword`는 정규화된 값)
 
 **Error Responses:**
-- `400` — keyword 누락/공백: `{ "error": "키워드를 입력해주세요." }`
+- `400` — keyword 누락/공백/쉼표만 입력: `{ "error": "키워드를 1개 이상 입력해주세요." }`
 - `400` — content 2000자 초과: `{ "error": "내용은 2000자를 초과할 수 없습니다." }`
+
+#### `POST /api/daily-notes/extract-tags` (2026-09-01 추가)
+
+**Request:**
+```json
+{ "content": "아침에 일어나서 5분 스트레칭을 하면..." }
+```
+- `content` 필수 (trim 후 빈 문자열이면 400)
+
+**서버 동작**: Anthropic Messages API(`@anthropic-ai/sdk`)를 `strict: true` 커스텀 툴(`extract_tags`) + `tool_choice`로 강제 호출해 `{ category, keywords }` 형태의 구조화된 JSON만 받는다. 모델은 `claude-sonnet-5`(사용자 지정), `output_config: { effort: "low" }`(분류/추출류 작업이라 낮은 effort로 충분 — 비용 절감). DB에는 저장하지 않고 결과만 그대로 응답한다.
+
+**Response (200):**
+```json
+{ "category": "습관", "keywords": ["아침루틴", "스트레칭", "건강관리"] }
+```
+
+**Error Responses:**
+- `400` — content 누락/공백: `{ "error": "추출할 내용이 없습니다." }`
+- `500` — 서버에 API 키 미설정: `{ "error": "서버에 AI 키(CLAUDE_KEY)가 설정되지 않았습니다." }`
+- `502` — Anthropic API 호출 실패(네트워크/인증/레이트리밋 등): `{ "error": "AI 태그 추출에 실패했습니다: ..." }`
 
 #### `PUT /api/daily-notes/:id`
 
@@ -226,7 +247,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 **Response (200)**: 저장된 전체 객체 (`updated_at` 갱신됨)
 
 **Error Responses:**
-- `400` — keyword 누락/공백 또는 content 2000자 초과 (POST와 동일 메시지)
+- `400` — keyword 정규화 후 빈 값 또는 content 2000자 초과 (POST와 동일 메시지)
 - `404` — 존재하지 않는 id: `{ "error": "찾을 수 없습니다." }`
 
 #### `DELETE /api/daily-notes/:id`
@@ -275,8 +296,9 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
 | Component | Location | Responsibility |
 |-----------|----------|----------------|
-| `DailyNote.jsx` | `client/src/components/DailyNote/` | 뷰 전환 탭 + 작성 폼 토글 상태 보유, `noteLabel(note)` 공통 함수 정의 후 하위에 props로 전달 |
-| `DailyNoteForm.jsx` | `client/src/components/DailyNote/` | 키워드/카테고리/연관 키워드/항목/본문 입력, 글자 수 카운터, 신규/수정 겸용 |
+| `DailyNote.jsx` | `client/src/components/DailyNote/` | 뷰 전환 탭 + 작성 폼 토글 상태 보유 |
+| `noteUtils.js` | `client/src/components/DailyNote/` | `noteLabel(note)`/`noteKeywords(note)`/`renderNoteMarkdown(content)` 공용 함수 (2026-09-01 amendment — `DailyNote.jsx`가 export하고 하위 뷰가 다시 import하던 순환 참조를 제거하기 위해 별도 리프 모듈로 분리) |
+| `DailyNoteForm.jsx` | `client/src/components/DailyNote/` | 키워드(해시태그 칩 입력)/카테고리/항목/본문 입력, 글자 수 카운터, 신규/수정 겸용. "태그추출(AI)" 버튼으로 서버 AI 추출 결과를 입력란에만 반영, "되돌리기" 버튼으로 마운트 시점 스냅샷(DB 값 또는 빈 초안)으로 복원 (2026-09-01 추가 — `App.jsx`가 `DailyNoteForm`에 `key={editingNote?.id ?? 'new'}`를 부여해 노트 전환 시 스냅샷이 새로 캡처되도록 함) |
 | `DailyNoteList.jsx` | `client/src/components/DailyNote/` | 기본 목록, 마크다운 렌더링, 키워드/카테고리 필터 입력 |
 | `DailyNoteCalendarView.jsx` | `client/src/components/DailyNote/` | 월 그리드(`buildGrid`/`toDateString`/`WEEKDAYS` 로컬 복제), 날짜별 그룹핑, 날짜 선택 패널 |
 | `DailyNoteMindMapView.jsx` | `client/src/components/DailyNote/` | 연결 그래프 계산(§5.5) + SVG 클러스터 카드 렌더 + 상세 패널 |
@@ -291,11 +313,14 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
 #### 입력 폼 (DailyNoteForm)
 
-- [ ] 필드: 키워드(필수, text) · 카테고리(선택, text) · 연관 키워드(선택, text, placeholder "쉼표로 구분") · 항목(선택, text)
-- [ ] 본문 textarea: `maxLength=2000`, `rows="8"`, `font-mono`, placeholder "마크다운 문법으로 자유롭게 기록 (AI가 정리한 내용을 붙여넣어도 좋습니다)"
-- [ ] 글자 수 카운터 `{content.length}/2000` (기존 `UnconsciousWorries.jsx` 패턴과 동일하게 `onChange`에서 `slice(0, 2000)`로 방어)
-- [ ] 저장/취소 버튼, 저장 성공 시 폼 닫힘 + 목록 최상단 반영
-- [ ] 키워드 미입력 시 저장 버튼 비활성화 또는 제출 시 인라인 에러 메시지
+- [x] 필드: 키워드(태그, 필수·1개 이상) · 카테고리(선택, text) · 항목(선택, text)
+- [x] 키워드는 해시태그 칩 입력 — Enter 또는 쉼표로 태그 커밋, 칩의 × 버튼으로 삭제, 빈 입력에서 Backspace로 마지막 태그 삭제, blur 시 입력 중이던 텍스트도 자동 커밋 (2026-09-01 amendment — 기존 "키워드 단일 text input + 연관 키워드 쉼표 text input" 2필드를 이 칩 입력 1개로 통합)
+- [x] 본문 textarea: `maxLength=2000`, `rows="8"`, `font-mono`, placeholder "마크다운 문법으로 자유롭게 기록 (AI가 정리한 내용을 붙여넣어도 좋습니다)"
+- [x] 글자 수 카운터 `{content.length}/2000` (기존 `UnconsciousWorries.jsx` 패턴과 동일하게 `onChange`에서 `slice(0, 2000)`로 방어)
+- [x] 저장/취소 버튼, 저장 성공 시 폼 닫힘 + 목록 최상단 반영
+- [x] 키워드가 1개도 없을 때 제출 시 인라인 에러 메시지("키워드를 1개 이상 입력해주세요.")
+- [x] (2026-09-01 추가) 본문 라벨 옆 "태그추출(AI)" 버튼 — 클릭 시 `POST /api/daily-notes/extract-tags` 호출, 응답의 `category`/`keywords`로 카테고리 입력란과 키워드 태그를 교체(프론트 상태만, 저장 전까지 DB 미반영). 내용이 비어있으면 인라인 에러("먼저 내용을 입력해주세요."), 호출 중 버튼 비활성화("추출 중...")
+- [x] (2026-09-01 추가) "저장" 버튼 옆 "되돌리기" 버튼 — 클릭 시 폼 전체(날짜/카테고리/항목/본문/키워드)를 마운트 시점 스냅샷으로 즉시 복원(별도 API 호출 없음)
 
 #### 목록 뷰 (DailyNoteList)
 
@@ -324,7 +349,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
 **연결(edge) 판정 규칙** (두 노트 A, B):
 1. 카테고리 연결: `A.category`와 `B.category`가 모두 비어있지 않고, `trim()` 후 값이 같으면 연결
-2. 키워드 연결: `keywordSet(note) = { trim(note.keyword) } ∪ split(note.related_keywords, ',').map(trim).filter(Boolean)` 두 집합의 교집합이 비어있지 않으면 연결
+2. 키워드 연결: `keywordSet(note) = split(note.keyword, ',').map(trim).filter(Boolean)`(= `noteKeywords(note)`) 두 집합의 교집합이 비어있지 않으면 연결 — 한 노트가 태그를 여러 개 가지고 한 태그가 여러 노트에 걸릴 수 있으므로 이 규칙만으로 노트 간 관계가 자연스럽게 n:n이 된다 (2026-09-01 amendment — 기존에는 `keyword`(단일) ∪ `related_keywords`(다중)를 합쳐 집합을 만들었으나, 두 필드가 하나의 다중 `keyword`로 통합되며 정의가 단순해짐)
 3. 두 규칙 중 하나라도 만족하면 edge 생성 (중복 연결은 1개로 취급)
 4. 대소문자 구분 없이 비교하되(`toLowerCase()`), 원문은 그대로 표시에 사용
 
@@ -348,15 +373,18 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
 | Status | 상황 | 메시지 |
 |--------|------|--------|
-| 400 | keyword 누락/공백으로 생성·수정 시도 | `키워드를 입력해주세요.` |
+| 400 | 정규화 후 유효 키워드 토큰이 0개인 상태로 생성·수정 시도 | `키워드를 1개 이상 입력해주세요.` |
 | 400 | content가 2000자를 초과 | `내용은 2000자를 초과할 수 없습니다.` |
 | 404 | 존재하지 않는 id로 수정/삭제 시도 | `찾을 수 없습니다.` |
+| 400 | (2026-09-01) `extract-tags` 요청에 content 없음/공백 | `추출할 내용이 없습니다.` |
+| 500 | (2026-09-01) 서버에 `CLAUDE_KEY`/`CLAUD_KEY` 미설정 상태로 `extract-tags` 호출 | `서버에 AI 키(CLAUDE_KEY)가 설정되지 않았습니다.` |
+| 502 | (2026-09-01) Anthropic API 호출 실패 | `AI 태그 추출에 실패했습니다: ...` |
 | 500 | 예상 못한 서버 오류 | 기존 `index.js` 공통 에러 핸들러가 처리 (변경 없음) |
 
 ### 6.2 Error Response Format
 
 ```json
-{ "error": "키워드를 입력해주세요." }
+{ "error": "키워드를 1개 이상 입력해주세요." }
 ```
 
 ---
@@ -369,6 +397,8 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 - [ ] 마크다운 렌더링 시 `DOMPurify.sanitize()`로 XSS 방지 (기존 `UnconsciousWorries.jsx`와 동일한 방어선, 체크박스 커스텀 렌더러는 이 기능에 불필요하므로 제외한 단순 버전 사용)
 - [ ] SQL Injection: 기존과 동일하게 `db.prepare().run(...)` 파라미터 바인딩만 사용
 - [ ] Rate Limiting / HTTPS: 해당 없음 (localhost 전용, 기존과 동일)
+- [x] (2026-09-01 추가) Anthropic API 키(`CLAUDE_KEY`/`CLAUD_KEY`)는 서버 프로세스(`server/routes/dailyNotes.js`)에서만 `process.env`로 읽고, 어떤 API 응답에도 포함하지 않는다 — 클라이언트는 `content`만 보내고 결과(`category`/`keywords`)만 받는다
+- [x] (2026-09-01 추가) 키는 리포 루트 `.env`에 저장하고 `server/index.js`에서 `dotenv`로 로드 — `.env`는 이미 `.gitignore`에 포함되어 커밋되지 않음(신규 추가 아님, 기존 상태 확인)
 
 ---
 
@@ -452,6 +482,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 | `DailyNoteList.jsx` | Presentation | `client/src/components/DailyNote/DailyNoteList.jsx` |
 | `DailyNoteCalendarView.jsx` | Presentation | `client/src/components/DailyNote/DailyNoteCalendarView.jsx` |
 | `DailyNoteMindMapView.jsx` | Presentation | `client/src/components/DailyNote/DailyNoteMindMapView.jsx` |
+| `noteUtils.js` | Presentation (공용 헬퍼) | `client/src/components/DailyNote/noteUtils.js` |
 | `useDailyNotes` | Application | `client/src/hooks/useDailyNotes.js` |
 | `api/dailyNotes.js` | Infrastructure | `client/src/api/dailyNotes.js` |
 | `routes/dailyNotes.js` | Infrastructure | `server/routes/dailyNotes.js` |
@@ -477,7 +508,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 | Item | Convention Applied |
 |------|---------------------|
 | 리소스당 파일 수 | API 1파일(`dailyNotes.js`) + 라우트 1파일(`dailyNotes.js`)에 전체 CRUD, `tasks.js`/`focusmap.js`와 동일 |
-| 마크다운 렌더링 | `UnconsciousWorries.jsx`를 import하지 않고 `marked`+`dompurify`로 데일리노트 전용 단순 렌더 함수를 `DailyNoteList.jsx`(및 마인드맵 상세 패널)에 로컬로 작성 |
+| 마크다운 렌더링 | `UnconsciousWorries.jsx`를 import하지 않고 `marked`+`dompurify`로 데일리노트 전용 단순 렌더 함수를 작성. 목록/캘린더/마인드맵 3개 뷰가 동일 함수를 필요로 해 `noteUtils.js` 공용 모듈로 분리(2026-09-01 amendment — 최초에는 `DailyNote.jsx`가 export하고 하위 뷰가 다시 import하는 구조였으나 순환 참조로 판명되어 리프 모듈로 이동) |
 | 캘린더 그리드 | `Calendar.jsx`의 `buildGrid`/`toDateString`/`WEEKDAYS`를 import하지 않고 `DailyNoteCalendarView.jsx`에 동일 로직을 로컬로 복제(기존 프로젝트가 이미 여러 파일에서 `toDateString`을 각자 정의해온 관례를 따름) |
 | 상태 관리 | 로컬 React state + custom hook, 전역 스토어 도입 안 함 |
 | 에러 처리 | `{ error: string }` 한국어 메시지, 기존 라우트와 동일 |
@@ -491,17 +522,20 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 ```
 server/
 ├── db/schema.sql                          (수정 — daily_notes 테이블 + 인덱스 추가)
-├── routes/dailyNotes.js                   (신규 — GET/, POST/, PUT/:id, DELETE/:id)
-├── index.js                               (수정 — /api/daily-notes 라우터 등록)
+├── routes/dailyNotes.js                   (신규 — GET/, POST/, PUT/:id, DELETE/:id, 2026-09-01: POST /extract-tags 추가)
+├── index.js                               (수정 — /api/daily-notes 라우터 등록, 2026-09-01: 최상단에 dotenv.config() 추가)
+├── package.json                            (수정, 2026-09-01 — 의존성 `@anthropic-ai/sdk`, `dotenv` 추가)
+.env                                        (신규, 2026-09-01 — 리포 루트, `CLAUDE_KEY`/`CLAUD_KEY`. 이미 `.gitignore`에 포함)
 client/src/
-├── api/dailyNotes.js                      (신규 — list/create/update/remove 4개 함수)
+├── api/dailyNotes.js                      (신규 — list/create/update/remove 4개 함수, 2026-09-01: extractTags 추가)
 ├── hooks/useDailyNotes.js                 (신규)
 └── components/DailyNote/
     ├── DailyNote.jsx                       (신규 — 뷰 전환 컨테이너)
     ├── DailyNoteForm.jsx                   (신규)
     ├── DailyNoteList.jsx                   (신규)
     ├── DailyNoteCalendarView.jsx           (신규)
-    └── DailyNoteMindMapView.jsx            (신규)
+    ├── DailyNoteMindMapView.jsx            (신규)
+    └── noteUtils.js                        (신규 — noteLabel/noteKeywords/renderNoteMarkdown 공용 함수, 2026-09-01 순환 참조 제거로 추가)
 ├── App.jsx                                (수정 — TABS에 dailynote 추가 + 탭 렌더 분기 추가)
 ```
 
@@ -550,3 +584,5 @@ client/src/
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 0.1 | 2026-08-30 | Initial draft (Option C 선택) | Mincoln Cho |
+| 0.2 | 2026-09-01 | 키워드를 해시태그 스타일 다중 값으로 변경, "연관 키워드" 필드/컬럼 제거 후 "키워드"로 통합(§3.1/§3.3/§4.2/§5.4/§5.5/§10.4 갱신). `noteLabel`/`renderNoteMarkdown`을 `DailyNote.jsx` 순환 참조에서 `noteUtils.js` 공용 모듈로 분리(§5.3/§9.3/§11.1 갱신) | Mincoln Cho |
+| 0.3 | 2026-09-01 | `POST /api/daily-notes/extract-tags` 추가 — Anthropic API(Claude, strict tool use)로 본문에서 카테고리/키워드 추출, DB 미저장(§4.1/§4.2 갱신). 폼에 "태그추출(AI)"·"되돌리기" 버튼 추가(§5.3/§5.4 갱신), API 키 취급 보안 항목 추가(§7 갱신), `@anthropic-ai/sdk`+`dotenv` 의존성 및 리포 루트 `.env` 추가(§11.1 갱신) | Mincoln Cho |

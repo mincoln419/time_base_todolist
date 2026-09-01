@@ -32,6 +32,19 @@ export async function updateDailyNote(id, note) {
   return res.json();
 }
 
+export async function extractDailyNoteTags(content) {
+  const res = await fetch(`${BASE}/extract-tags`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const { error } = await res.json();
+    throw new Error(error);
+  }
+  return res.json();
+}
+
 export async function deleteDailyNote(id) {
   const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('데일리노트 삭제 실패');

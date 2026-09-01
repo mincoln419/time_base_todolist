@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { noteLabel, renderNoteMarkdown } from './noteUtils';
+import { noteLabel, noteKeywords, renderNoteMarkdown } from './noteUtils';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -109,7 +109,11 @@ export default function DailyNoteCalendarView({ notes, onCreateForDate, onEdit, 
               <div key={note.id} className="p-3 border rounded">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="inline-block mb-1 px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600">{note.keyword}</span>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {noteKeywords(note).map((tag) => (
+                        <span key={tag} className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-600">#{tag}</span>
+                      ))}
+                    </div>
                     <h5 className="font-semibold text-gray-800">{noteLabel(note)}</h5>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">

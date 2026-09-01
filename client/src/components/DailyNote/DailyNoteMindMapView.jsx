@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { noteLabel, renderNoteMarkdown } from './noteUtils';
+import { noteLabel, noteKeywords, renderNoteMarkdown } from './noteUtils';
 
 const NODE_RADIUS = 24;
 const LABEL_MAX = 8;
@@ -9,14 +9,7 @@ function normalize(s) {
 }
 
 function keywordSet(note) {
-  const set = new Set();
-  const kw = normalize(note.keyword);
-  if (kw) set.add(kw);
-  (note.related_keywords || '').split(',').forEach((k) => {
-    const v = normalize(k);
-    if (v) set.add(v);
-  });
-  return set;
+  return new Set(noteKeywords(note).map(normalize));
 }
 
 function hasIntersection(a, b) {
@@ -200,7 +193,9 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600">{selectedNote.date}</span>
-              <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-600">{selectedNote.keyword}</span>
+              {noteKeywords(selectedNote).map((tag) => (
+                <span key={tag} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">#{tag}</span>
+              ))}
               {selectedNote.category && (
                 <span className="px-2 py-0.5 rounded bg-green-50 text-green-600">{selectedNote.category}</span>
               )}

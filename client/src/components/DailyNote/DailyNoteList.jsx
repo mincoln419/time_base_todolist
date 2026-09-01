@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { noteLabel, renderNoteMarkdown } from './noteUtils';
+import { noteLabel, noteKeywords, renderNoteMarkdown } from './noteUtils';
 
 export default function DailyNoteList({ notes, onEdit, onDelete }) {
   const [filter, setFilter] = useState('');
@@ -33,7 +33,9 @@ export default function DailyNoteList({ notes, onEdit, onDelete }) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600">{note.date}</span>
-              <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-600">{note.keyword}</span>
+              {noteKeywords(note).map((tag) => (
+                <span key={tag} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">#{tag}</span>
+              ))}
               {note.category && (
                 <span className="px-2 py-0.5 rounded bg-green-50 text-green-600">{note.category}</span>
               )}
@@ -44,9 +46,6 @@ export default function DailyNoteList({ notes, onEdit, onDelete }) {
             </div>
           </div>
           <h4 className="mt-2 font-semibold text-gray-800">{noteLabel(note)}</h4>
-          {note.related_keywords && (
-            <p className="mt-1 text-xs text-gray-400">연관 키워드: {note.related_keywords}</p>
-          )}
           {note.content && (
             <div
               className="mt-2 text-sm text-gray-700 markdown-body"

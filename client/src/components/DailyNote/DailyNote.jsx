@@ -74,6 +74,7 @@ export default function DailyNote() {
 
       {formOpen && (
         <DailyNoteForm
+          key={editingNote?.id ?? 'new'}
           initialNote={editingNote}
           defaultDate={formDefaultDate}
           onSubmit={handleSubmit}

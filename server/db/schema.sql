@@ -148,13 +148,12 @@ CREATE TABLE IF NOT EXISTS warroom_member_tasks (
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
--- 데일리노트: 그날 떠오른 아이디어를 키워드/카테고리/연관 키워드/항목 + 마크다운 본문으로 기록
+-- 데일리노트: 그날 떠오른 아이디어를 키워드(해시태그, 쉼표 구분 다중)/카테고리/항목 + 마크다운 본문으로 기록
 CREATE TABLE IF NOT EXISTS daily_notes (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   date             TEXT    NOT NULL,
   keyword          TEXT    NOT NULL,
   category         TEXT,
-  related_keywords TEXT,
   item             TEXT,
   content          TEXT,
   created_at       TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
