@@ -1,3 +1,5 @@
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
 const express = require('express');
 const cors = require('cors');
 const { startScheduler } = require('./scheduler');
@@ -16,6 +18,7 @@ app.use('/api/tickets', require('./routes/tickets'));
 app.use('/api/worries', require('./routes/worries'));
 app.use('/api/longgoals', require('./routes/longgoals'));
 app.use('/api/warroom', require('./routes/warroom'));
+app.use('/api/daily-notes', require('./routes/dailyNotes'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/notify', require('./routes/notify'));

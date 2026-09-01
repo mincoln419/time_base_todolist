@@ -22,6 +22,7 @@ const BACKUP_TYPES = {
       'warroom_rails',
       'warroom_members',
       'warroom_member_tasks',
+      'daily_notes',
     ],
     deleteTables: [
       'tickets',
@@ -39,6 +40,7 @@ const BACKUP_TYPES = {
       'warroom_member_tasks',
       'warroom_members',
       'warroom_rails',
+      'daily_notes',
     ],
   },
   schedule: {
@@ -87,6 +89,11 @@ const BACKUP_TYPES = {
     label: '업무 배치 보드',
     tables: ['warroom_rails', 'warroom_members', 'warroom_member_tasks'],
     deleteTables: ['warroom_member_tasks', 'warroom_members', 'warroom_rails'],
+  },
+  dailynote: {
+    label: '데일리노트',
+    tables: ['daily_notes'],
+    deleteTables: ['daily_notes'],
   },
 };
 

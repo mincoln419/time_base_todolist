@@ -71,6 +71,21 @@ if (!worryColumns.some((c) => c.name === 'conclusion')) {
   db.exec('ALTER TABLE unconscious_worries ADD COLUMN conclusion TEXT');
 }
 
+// 마이그레이션: daily_notes.related_keywords를 keyword(해시태그, 쉼표 구분)로 병합 후 컬럼 제거
+const dailyNoteColumns = db.prepare("PRAGMA table_info(daily_notes)").all();
+if (dailyNoteColumns.some((c) => c.name === 'related_keywords')) {
+  const rows = db.prepare('SELECT id, keyword, related_keywords FROM daily_notes').all();
+  const mergeKeyword = db.prepare('UPDATE daily_notes SET keyword = ? WHERE id = ?');
+  for (const row of rows) {
+    const tokens = [
+      ...(row.keyword || '').split(',').map((s) => s.trim()).filter(Boolean),
+      ...(row.related_keywords || '').split(',').map((s) => s.trim()).filter(Boolean),
+    ];
+    mergeKeyword.run([...new Set(tokens)].join(', '), row.id);
+  }
+  db.exec('ALTER TABLE daily_notes DROP COLUMN related_keywords');
+}
+
 const subgoalColumns = db.prepare("PRAGMA table_info(long_goal_subgoals)").all();
 if (subgoalColumns.length > 0 && !subgoalColumns.some((c) => c.name === 'period_start')) {
   db.exec('ALTER TABLE long_goal_subgoals ADD COLUMN period_start TEXT');

@@ -10,6 +10,7 @@ const TYPE_LABELS = {
   worries: '무의식 고민목록',
   longgoals: '장기목표',
   warroom: '업무 배치 보드',
+  dailynote: '데일리노트',
 };
 
 function fileSafeLabel(label) {

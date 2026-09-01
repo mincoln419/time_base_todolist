@@ -55,6 +55,7 @@ time_based_todolist/
 |------|--------|------|
 | `PORT` | `3001` | Express 서버 포트 |
 | `DB_PATH` | `./data/todo.db` | SQLite 파일 경로 |
+| `CLAUDE_KEY` (또는 `CLAUD_KEY`) | 없음 (필수 — 리포 루트 `.env`, gitignore됨) | 데일리노트 "태그추출(AI)" 기능의 Anthropic API 키 |
 
 ## PDCA Status
 
