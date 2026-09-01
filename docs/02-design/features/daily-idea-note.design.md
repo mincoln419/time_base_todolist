@@ -103,7 +103,7 @@ version: 1.3
 |-----------|-----------|---------|
 | `DailyNote.jsx` | `useDailyNotes` | 상단 뷰 전환 탭(목록/캘린더/마인드맵) + 입력 폼 컨테이너 |
 | `DailyNoteForm.jsx` | (props로 notes/onCreate/onUpdate 수신) | 키워드/카테고리/연관 키워드/항목/본문 입력, 신규 작성 및 기존 노트 수정 겸용 |
-| `DailyNoteList.jsx` | (props로만 데이터 수신) | 기본 목록 렌더링(마크다운 HTML 변환), 필터, 수정/삭제 트리거 |
+| `DailyNoteList.jsx` | (props로만 데이터 수신) | 기본 목록 렌더링(마크다운 HTML 변환), 필터, 수정/삭제 트리거. 내부 `NoteCard` 서브컴포넌트가 카드별 접기/펼치기 상태(`expanded`)를 로컬로 보유(2026-09-02 추가) |
 | `DailyNoteCalendarView.jsx` | (props로만 데이터 수신) | 월별 그리드 + 날짜별 노트 개수/목록 |
 | `DailyNoteMindMapView.jsx` | (props로만 데이터 수신) | 연결 그래프 계산 + SVG 렌더링 |
 | `useDailyNotes.js` | `api/dailyNotes.js` | 노트 목록 조회/생성/수정/삭제 |
@@ -324,10 +324,11 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
 #### 목록 뷰 (DailyNoteList)
 
-- [ ] 카드형 목록, 각 카드에 날짜/키워드/카테고리 배지, `noteLabel(note)` 제목, 마크다운 렌더링된 본문
-- [ ] 카테고리 또는 키워드로 필터링하는 텍스트 입력
-- [ ] 카드별 수정/삭제 버튼 (수정 클릭 시 `DailyNoteForm`이 해당 노트 값으로 채워져 인라인 또는 모달로 열림)
-- [ ] 빈 상태: 노트가 없을 때 안내 문구
+- [x] 카드형 목록, 각 카드에 날짜/키워드/카테고리 배지, `noteLabel(note)` 제목, 마크다운 렌더링된 본문
+- [x] 카테고리 또는 키워드로 필터링하는 텍스트 입력
+- [x] 카드별 수정/삭제 버튼 (수정 클릭 시 `DailyNoteForm`이 해당 노트 값으로 채워져 인라인 또는 모달로 열림)
+- [x] 빈 상태: 노트가 없을 때 안내 문구
+- [x] (2026-09-02 추가) 본문이 길면(60자 초과 또는 줄바꿈 포함) 기본적으로 1줄만 미리보기(`line-clamp-1`)로 접혀 있고, 카드 좌측 상단 `▸`/`▾` 토글로 펼치고/접을 수 있다 — 토글은 배지들과 같은 상단 행 맨 왼쪽에 두고, 우측의 수정/삭제 버튼과 대칭 배치(사용자 요청: 오른쪽엔 수정/삭제가 있으니 토글은 왼쪽 끝에). 짧은 본문은 토글 버튼 없이 늘 전체 표시. 카드별로 펼침 상태를 독립적으로 관리(`DailyNoteList.jsx` 내부 `NoteCard` 컴포넌트의 로컬 state)
 
 #### 캘린더 뷰 (DailyNoteCalendarView)
 
@@ -339,11 +340,12 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
 #### 마인드맵 뷰 (DailyNoteMindMapView)
 
-- [ ] §5.5 알고리즘으로 계산된 연결요소(component)별 카드를 flex-wrap 그리드로 배치
-- [ ] 각 카드: 허브 노드(가장 연결이 많은 노트)를 중심에, 나머지 노드를 원형으로 배치한 SVG, 허브-스포크 + 노드 간 실제 연결선
-- [ ] 노드 클릭 시 하단 상세 패널에 전체 내용(마크다운 렌더링) 표시 + 수정/삭제 버튼
-- [ ] 연결이 전혀 없는 노트(고립 노드)는 별도 "연결 없음" 섹션에 단일 카드로 나열
-- [ ] 빈 상태: 노트가 없을 때 안내 문구
+- [x] (2026-09-01 amendment) 모든 노트를 하나의 SVG 캔버스(760×480 논리 좌표, 반응형 `viewBox`)에 §5.5 힘-기반 시뮬레이션으로 배치 — 연결요소별 카드 그리드 방식 폐기
+- [x] 노드를 드래그로 직접 옮길 수 있음(포인터 이벤트, jQuery 없음), 연결된 상대 노드 거리가 슬랙 범위(70~220)를 벗어나면 같이 끌려옴
+- [x] 노드 클릭(드래그 아님, 이동거리 4px 미만) 시 선택 표시 + 하단 상세 패널에 전체 내용(마크다운 렌더링) + 수정/삭제 버튼
+- [x] 연결선은 선택된 노드에 닿는 것만 강조(진한 파랑), 나머지는 옅게 표시
+- [x] 연결이 없는 노트도 같은 캔버스 안에서 반발력으로 자연스럽게 배치(별도 "연결 없음" 섹션 없음)
+- [x] 빈 상태: 노트가 없을 때 안내 문구
 
 ### 5.5 Mind Map Connection & Layout Algorithm
 
@@ -353,15 +355,19 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 3. 두 규칙 중 하나라도 만족하면 edge 생성 (중복 연결은 1개로 취급)
 4. 대소문자 구분 없이 비교하되(`toLowerCase()`), 원문은 그대로 표시에 사용
 
-**레이아웃 계산**:
-1. 위 규칙으로 무방향 그래프의 인접 리스트를 만들고, Union-Find(또는 BFS)로 연결요소(component)를 분리한다
-2. `size === 1`인 component는 "연결 없음" 섹션으로 분리
-3. `size >= 2`인 각 component에서 차수(degree)가 가장 높은 노드를 허브로 선택(동률이면 `id`가 작은 노드)
-4. 허브를 카드 중심(cx, cy)에 배치, 나머지 노드는 `360 / (size - 1)`도 간격으로 원 위에 배치 (반지름은 카드 크기에 따른 고정값)
-5. 허브-스포크 선 외에, 허브를 거치지 않는 노드 간 edge도 있으면 두 노드 좌표를 직선으로 추가 연결
-6. 카드 크기는 `size`에 비례해 최소/최대 폭 사이에서 결정(예: 노드 6개 이하 고정 폭, 그 이상은 반지름 확대)
+**레이아웃 계산 (2026-09-01 amendment, 2차 — `d3-force`로 물리 엔진 교체):**
 
-> 이 알고리즘은 물리 시뮬레이션 없이 O(N) 수준으로 계산 가능해 신규 의존성 없이 순수 JS로 구현할 수 있다. 노트 수가 많아져 가독성이 떨어지면 후속 개선 과제로 남긴다(Plan §5 Risk 참조).
+사용자가 처음에는 [js-mindmap](http://kenneth.kufluk.com/, Kenneth Kufluk, MIT License) — jQuery+Raphael.js 기반의 힘-기반 마인드맵 플러그인 — 의 레이아웃 개념을 요청해, jQuery/Raphael 없이 순수 React state(`useRef`+`requestAnimationFrame`)로 손수 구현했다. 이후 사용자가 D3 `forceSimulation` 기반의 참고 예제([D3](https://d3js.org/) `forceLink`/`forceManyBody`/`forceCollide`/`forceCenter` + 드래그)를 다시 제시하며 이를 참고해 재작성해달라고 요청했고, 손수 구현한 물리 엔진에서 "허용 범위 밖에서만 정확히 40px/200px로 수렴"이 안정적으로 재현되지 않는 문제(속도 기반 스프링이 alpha 감쇠 타이밍에 따라 목표값에 못 미치고 멈추는 문제)가 실측으로 확인되어, 검증된 `d3-force` 패키지(`npm i d3-force`, DOM 바인딩 없는 순수 물리 계산 모듈)를 물리 엔진으로 채택했다. DOM 렌더링은 여전히 d3-selection이 아닌 React+SVG가 전담한다(jQuery/d3-selection 모두 미사용).
+
+`DailyNoteMindMapView.jsx`가 `d3.forceSimulation()`에 등록하는 힘(force), 등록 순서대로:
+1. **`repulse` (커스텀)**: 연결(edge) **안 된** 노드 쌍에만 쿨롱 반발력(`strength/dist²`)을 적용해 서로 다른 클러스터가 겹치지 않게 한다. `d3.forceManyBody()`는 모든 쌍에 적용되어 슬랙 로직과 경쟁하므로 사용하지 않고, 연결 쌍을 제외하는 버전을 직접 구현(`pairRepulseForce`)
+2. **`collide`**: `d3.forceCollide()` — 완전 겹침만 방지하는 최소 반경(15 + 연결 수 가중치)만 사용. `NODE_R`(시각적 원 크기, 22)보다 훨씬 작게 잡아야 `REST_MIN`(40, 원 지름 44보다 작음)까지 정확히 압축될 때 충돌 방지력이 슬랙 보정과 다투지 않는다(실측으로 발견 — 처음엔 시각 반경과 동일하게 잡아 REST_MIN이 아니라 충돌 반경(~52)에서 멈추는 문제가 있었다)
+3. **`center`**: `d3.forceCenter()` — 약한 세기(0.03)로 전체를 캔버스 중앙 쪽으로 서서히 정렬
+4. **`slackLink` (커스텀)**: 연결된 두 노드 사이 거리가 `REST_MIN`(40px)~`STRETCH_LIMIT`(250px) 구간이면 **아무 힘도 주지 않는다** — 이 구간 안에서는 드래그하는 노드만 움직이고 연결된 상대는 절대 움직이지 않는다. `STRETCH_LIMIT`을 넘어 늘어나면 `REST_MAX`(200px)로, `REST_MIN` 아래로 압축되면 다시 `REST_MIN`으로 **매 tick 위치를 직접(alpha와 무관하게) 스냅**한다 — d3의 다른 force들처럼 속도(velocity)에 더하는 방식이 아니라 위치를 즉시 덮어써야 alpha가 얼마나 남았든 정확한 목표값에 수렴한다는 것을 실측으로 확인했다. 드래그로 고정된(`fx`/`fy` 설정된) 노드는 건드리지 않고, 상대 노드가 보정량을 전량 흡수한다
+
+**드래그**: d3 관례대로 포인터다운 시 `node.fx = node.x; node.fy = node.y;`로 고정하고, 이동 중엔 포인터 좌표로 `fx`/`fy`만 갱신하며(`simulation.alphaTarget(0.2).restart()`로 재가열), 포인터업 시 `fx = fy = null`로 해제한다(`alphaTarget(0)`). 이동 거리가 `DRAG_CLICK_THRESHOLD`(4px) 미만이면 드래그가 아니라 클릭으로 간주해 해당 노트를 선택하고 하단 상세 패널을 연다. `setPointerCapture` 실패 시 드래그 자체가 씹히는 문제가 손수 구현판에서 있었는데, d3-force 버전은 포인터 캡처를 아예 사용하지 않고 `onPointerMove`를 `<svg>` 전체에 걸어 캔버스 밖으로만 나가지 않으면 계속 추적하므로 이 문제가 재발하지 않는다.
+
+> 검증: React 컴포넌트 밖에서 시뮬레이션 노드를 직접 조작하고 `simulation.tick()`을 여러 번 호출하는 방식으로 자동화 테스트의 좌표계/타이밍 불확실성을 배제하고 물리 로직만 격리 검증 — REST_MAX 초과 후 정확히 200.0, REST_MIN 미만 후 정확히 40.0, 자유 구간(150) 유지 시 상대 노드 미이동까지 모두 확인했다.
 
 ---
 
@@ -526,6 +532,7 @@ server/
 ├── index.js                               (수정 — /api/daily-notes 라우터 등록, 2026-09-01: 최상단에 dotenv.config() 추가)
 ├── package.json                            (수정, 2026-09-01 — 의존성 `@anthropic-ai/sdk`, `dotenv` 추가)
 .env                                        (신규, 2026-09-01 — 리포 루트, `CLAUDE_KEY`/`CLAUD_KEY`. 이미 `.gitignore`에 포함)
+client/package.json                        (수정, 2026-09-01 — 의존성 `d3-force` 추가, 마인드맵 물리 엔진)
 client/src/
 ├── api/dailyNotes.js                      (신규 — list/create/update/remove 4개 함수, 2026-09-01: extractTags 추가)
 ├── hooks/useDailyNotes.js                 (신규)
@@ -534,7 +541,7 @@ client/src/
     ├── DailyNoteForm.jsx                   (신규)
     ├── DailyNoteList.jsx                   (신규)
     ├── DailyNoteCalendarView.jsx           (신규)
-    ├── DailyNoteMindMapView.jsx            (신규)
+    ├── DailyNoteMindMapView.jsx            (신규, 2026-09-01: d3-force 기반으로 전면 재작성 — §5.5 참조)
     └── noteUtils.js                        (신규 — noteLabel/noteKeywords/renderNoteMarkdown 공용 함수, 2026-09-01 순환 참조 제거로 추가)
 ├── App.jsx                                (수정 — TABS에 dailynote 추가 + 탭 렌더 분기 추가)
 ```
@@ -586,3 +593,6 @@ client/src/
 | 0.1 | 2026-08-30 | Initial draft (Option C 선택) | Mincoln Cho |
 | 0.2 | 2026-09-01 | 키워드를 해시태그 스타일 다중 값으로 변경, "연관 키워드" 필드/컬럼 제거 후 "키워드"로 통합(§3.1/§3.3/§4.2/§5.4/§5.5/§10.4 갱신). `noteLabel`/`renderNoteMarkdown`을 `DailyNote.jsx` 순환 참조에서 `noteUtils.js` 공용 모듈로 분리(§5.3/§9.3/§11.1 갱신) | Mincoln Cho |
 | 0.3 | 2026-09-01 | `POST /api/daily-notes/extract-tags` 추가 — Anthropic API(Claude, strict tool use)로 본문에서 카테고리/키워드 추출, DB 미저장(§4.1/§4.2 갱신). 폼에 "태그추출(AI)"·"되돌리기" 버튼 추가(§5.3/§5.4 갱신), API 키 취급 보안 항목 추가(§7 갱신), `@anthropic-ai/sdk`+`dotenv` 의존성 및 리포 루트 `.env` 추가(§11.1 갱신) | Mincoln Cho |
+| 0.4 | 2026-09-01 | 마인드맵 뷰를 결정론적 허브-스포크 레이아웃에서 js-mindmap(jQuery+Raphael, MIT) 개념을 이식한 손수 구현 힘-기반 물리 시뮬레이션(jQuery/Raphael 미사용)으로 전면 교체(§5.4/§5.5 갱신). 모든 노트를 카드 그리드가 아닌 단일 SVG 캔버스에 배치, 드래그로 직접 이동 가능 | Mincoln Cho |
+| 0.5 | 2026-09-01 | 손수 구현한 물리 엔진을 검증된 `d3-force` 패키지로 교체(사용자가 D3 forceSimulation 기반 참고 예제 재제시) — 속도 기반 스프링이 alpha 감쇠 타이밍에 따라 목표값에 못 미치는 문제를 발견해, 위치를 직접 스냅하는 커스텀 force(`slackLink`)로 재작성. 연결 쌍만 제외하는 커스텀 반발력(`repulse`), 시각 반경보다 작은 충돌 반경(`collide`) 조정 포함. 연결된 두 노드는 40~200px 슬랙 구간 안에서는 드래그하는 노드만 움직이고 상대는 절대 움직이지 않으며, 범위를 벗어나야만(스트레치 한계 250px) 상대가 정확히 200px로 끌려오도록 4차례 사용자 피드백을 반영해 튜닝, 시뮬레이션 직접 조작+수동 tick 호출로 정확한 수렴(200.0/40.0/150.0) 검증(§5.5/§11.1 갱신) | Mincoln Cho |
+| 0.6 | 2026-09-02 | 목록 뷰 카드의 본문이 길면 기본 1줄 미리보기(`line-clamp-1`)로 접고, 카드 좌측 상단 `▸`/`▾` 토글로 펼치도록 변경(사용자 요청: "내용이 긴 경우 목록을 일괄적으로 보기 어려움" + "토글은 오른쪽 수정/삭제와 대칭되게 왼쪽 끝에"). `DailyNoteList.jsx`에 `NoteCard` 서브컴포넌트 도입(§5.3/§5.4 갱신) | Mincoln Cho |

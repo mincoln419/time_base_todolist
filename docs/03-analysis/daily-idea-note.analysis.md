@@ -5,7 +5,7 @@
 > **Status**: Check Complete (>=90%)
 > **Design Doc**: [daily-idea-note.design.md](../02-design/features/daily-idea-note.design.md)
 
-> **2026-09-01 amendment note**: 이 Check 결과(100%)는 2026-08-30 시점 구현 기준이다. 이후 두 차례 amendment가 있었다: (1) "키워드" 필드가 해시태그 스타일 다중 값으로 바뀌고 "연관 키워드" 필드가 제거됨(Plan/Design 0.2), 순환 참조 제거를 위해 `noteUtils.js` 추가. (2) `POST /api/daily-notes/extract-tags`(Anthropic API 기반 카테고리/키워드 자동 추출) 및 폼의 "태그추출(AI)"·"되돌리기" 버튼 추가, `@anthropic-ai/sdk`+`dotenv` 의존성 및 리포 루트 `.env` 추가(Plan/Design 0.3). 두 amendment 모두 Design 문서에 반영·재검증(빌드+API curl+브라우저)했으나, 별도의 정식 재-Check 사이클(`/pdca analyze`)은 아직 실행하지 않았다.
+> **2026-09-01 amendment note**: 이 Check 결과(100%)는 2026-08-30 시점 구현 기준이다. 이후 세 차례 amendment가 있었다: (1) "키워드" 필드가 해시태그 스타일 다중 값으로 바뀌고 "연관 키워드" 필드가 제거됨(Plan/Design 0.2), 순환 참조 제거를 위해 `noteUtils.js` 추가. (2) `POST /api/daily-notes/extract-tags`(Anthropic API 기반 카테고리/키워드 자동 추출) 및 폼의 "태그추출(AI)"·"되돌리기" 버튼 추가, `@anthropic-ai/sdk`+`dotenv` 의존성 및 리포 루트 `.env` 추가(Plan/Design 0.3). (3) 마인드맵 뷰를 결정론적 허브-스포크 레이아웃에서 힘-기반 물리 시뮬레이션(드래그 가능)으로 전면 교체, jQuery/Raphael 없이 React+SVG로 구현(Plan/Design 0.4). (4) 손수 구현한 물리 엔진을 검증된 `d3-force` 패키지로 교체 — 정확한 40px/200px(스트레치 한계 250px) 경계 수렴을 시뮬레이션 직접 조작으로 검증(Plan/Design 0.5, FR-16). 네 amendment 모두 Design 문서에 반영·재검증(빌드+API curl+브라우저+시뮬레이션 단위 검증)했으나, 별도의 정식 재-Check 사이클(`/pdca analyze`)은 아직 실행하지 않았다.
 
 ---
 
