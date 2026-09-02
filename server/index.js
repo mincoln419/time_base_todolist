@@ -1,4 +1,5 @@
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+// Design Ref: §5.5 — API 키(QWEN_KEY)는 프로젝트 루트 .env(gitignored)에 저장되어 있어 명시 경로로 로드
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const express = require('express');
 const cors = require('cors');
@@ -22,6 +23,7 @@ app.use('/api/daily-notes', require('./routes/dailyNotes'));
 app.use('/api/backup', require('./routes/backup'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/notify', require('./routes/notify'));
+app.use('/api/meetings', require('./routes/meetings'));
 
 app.use((err, req, res, next) => {
   console.error(err);
