@@ -1,7 +1,10 @@
 const express = require('express');
-const db = require('../db/database');
+const { firestore } = require('../db/firestore');
+const { WORRIES, WORRY_ATTEMPTS, COUNTER_KEYS } = require('../db/collections');
+const { nowString, nextId, NotFoundError, asyncHandler } = require('../db/util');
 
 const router = express.Router();
+const worriesRef = firestore.collection(WORRIES);
 const MAX_CONCLUSION_LENGTH = 2000;
 
 function isDateString(value) {
@@ -22,101 +25,108 @@ function worryExistsOnDate(worry, date) {
   return created <= date && (!completed || completed >= date);
 }
 
-// GET /api/worries - 전체 고민 목록
-router.get('/', (req, res) => {
-  const active = db
-    .prepare('SELECT * FROM unconscious_worries WHERE completed_at IS NULL ORDER BY created_at DESC, id DESC')
-    .all();
-  const completed = db
-    .prepare('SELECT * FROM unconscious_worries WHERE completed_at IS NOT NULL ORDER BY completed_at DESC, id DESC')
-    .all();
+// GET /api/worries - 전체 고민 목록 (데이터 양이 적어 전체 로드 후 JS에서 정렬/필터)
+router.get('/', asyncHandler(async (req, res) => {
+  const snap = await worriesRef.get();
+  const rows = snap.docs.map((d) => d.data());
+
+  const active = rows
+    .filter((w) => w.completed_at == null)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
+  const completed = rows
+    .filter((w) => w.completed_at != null)
+    .sort((a, b) => b.completed_at.localeCompare(a.completed_at) || b.id - a.id);
 
   res.json({ active, completed });
-});
+}));
 
 // POST /api/worries - 고민 추가
-router.post('/', (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const { title } = req.body;
   if (!title || !title.trim()) {
     return res.status(400).json({ error: '고민할 내용을 입력해주세요.' });
   }
 
-  const result = db.prepare('INSERT INTO unconscious_worries (title) VALUES (?)').run(title.trim());
-  const worry = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(result.lastInsertRowid);
+  const worry = await firestore.runTransaction(async (tx) => {
+    const id = await nextId(tx, COUNTER_KEYS.WORRIES);
+    const doc = { id, title: title.trim(), created_at: nowString(), conclusion: null, completed_at: null };
+    tx.set(worriesRef.doc(String(id)), doc);
+    return doc;
+  });
+
   res.status(201).json(worry);
-});
+}));
 
 // PATCH /api/worries/:id/complete - 완료 목록으로 이동
-router.patch('/:id/complete', (req, res) => {
-  const current = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id);
-  if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.patch('/:id/complete', asyncHandler(async (req, res) => {
+  const ref = worriesRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
 
   const conclusion = String(req.body?.conclusion ?? '').trim();
   if (conclusion.length > MAX_CONCLUSION_LENGTH) {
     return res.status(400).json({ error: '메모는 2000자 이내로 입력해주세요.' });
   }
 
-  if (!current.completed_at) {
-    db.prepare(`
-      UPDATE unconscious_worries
-      SET conclusion = ?, completed_at = datetime('now', 'localtime')
-      WHERE id = ?
-    `).run(conclusion || null, req.params.id);
-  } else {
-    db.prepare('UPDATE unconscious_worries SET conclusion = ? WHERE id = ?')
-      .run(conclusion || null, req.params.id);
-  }
-
-  res.json(db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id));
-});
+  const current = snap.data();
+  const updated = { ...current, conclusion: conclusion || null, completed_at: current.completed_at || nowString() };
+  await ref.set(updated);
+  res.json(updated);
+}));
 
 // PATCH /api/worries/:id/conclusion - 고민의 메모 저장/수정
-router.patch('/:id/conclusion', (req, res) => {
-  const current = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id);
-  if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.patch('/:id/conclusion', asyncHandler(async (req, res) => {
+  const ref = worriesRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
 
   const conclusion = String(req.body?.conclusion ?? '').trim();
   if (conclusion.length > MAX_CONCLUSION_LENGTH) {
     return res.status(400).json({ error: '메모는 2000자 이내로 입력해주세요.' });
   }
 
-  db.prepare('UPDATE unconscious_worries SET conclusion = ? WHERE id = ?')
-    .run(conclusion || null, req.params.id);
-
-  res.json(db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id));
-});
+  const updated = { ...snap.data(), conclusion: conclusion || null };
+  await ref.set(updated);
+  res.json(updated);
+}));
 
 // PATCH /api/worries/:id/restore - 완료된 고민을 활성 목록으로 복원
-router.patch('/:id/restore', (req, res) => {
-  const current = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id);
-  if (!current) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.patch('/:id/restore', asyncHandler(async (req, res) => {
+  const ref = worriesRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
 
-  db.prepare('UPDATE unconscious_worries SET completed_at = NULL WHERE id = ?').run(req.params.id);
-
-  res.json(db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(req.params.id));
-});
+  const updated = { ...snap.data(), completed_at: null };
+  await ref.set(updated);
+  res.json(updated);
+}));
 
 // GET /api/worries/daily?date=YYYY-MM-DD - 특정 날짜의 체크 표
-router.get('/daily', (req, res) => {
+router.get('/daily', asyncHandler(async (req, res) => {
   const { date } = req.query;
   if (!isDateString(date)) return res.status(400).json({ error: 'date 파라미터가 필요합니다.' });
 
-  const rows = db
-    .prepare(`
-      SELECT
-        w.id,
-        w.title,
-        w.created_at,
-        w.completed_at,
-        COALESCE(a.attempted, 0) AS attempted
-      FROM unconscious_worries w
-      LEFT JOIN unconscious_worry_attempts a
-        ON a.worry_id = w.id AND a.date = ?
-      WHERE substr(w.created_at, 1, 10) <= ?
-        AND (w.completed_at IS NULL OR substr(w.completed_at, 1, 10) >= ?)
-      ORDER BY w.completed_at IS NOT NULL ASC, w.created_at ASC, w.id ASC
-    `)
-    .all(date, date, date);
+  const worriesSnap = await worriesRef.get();
+  const worries = worriesSnap.docs.map((d) => d.data()).filter((w) => worryExistsOnDate(w, date));
+  worries.sort((a, b) => {
+    const aDone = a.completed_at != null ? 1 : 0;
+    const bDone = b.completed_at != null ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    return a.created_at.localeCompare(b.created_at) || a.id - b.id;
+  });
+
+  const attemptsSnap = await firestore.collectionGroup(WORRY_ATTEMPTS).where('date', '==', date).get();
+  const attemptedIds = new Set(
+    attemptsSnap.docs.filter((d) => d.data().attempted === 1).map((d) => d.data().worry_id)
+  );
+
+  const rows = worries.map((w) => ({
+    id: w.id,
+    title: w.title,
+    created_at: w.created_at,
+    completed_at: w.completed_at,
+    attempted: attemptedIds.has(w.id) ? 1 : 0,
+  }));
 
   res.json({
     date,
@@ -126,36 +136,40 @@ router.get('/daily', (req, res) => {
       total: rows.length,
     },
   });
-});
+}));
 
 // PUT /api/worries/:id/attempts/:date - 날짜별 해결 시도 체크
-router.put('/:id/attempts/:date', (req, res) => {
+router.put('/:id/attempts/:date', asyncHandler(async (req, res) => {
   const { id, date } = req.params;
   const attempted = req.body.attempted ? 1 : 0;
 
   if (!isDateString(date)) return res.status(400).json({ error: '올바른 날짜가 아닙니다.' });
 
-  const worry = db.prepare('SELECT * FROM unconscious_worries WHERE id = ?').get(id);
-  if (!worry) return res.status(404).json({ error: '찾을 수 없습니다.' });
-  if (!worryExistsOnDate(worry, date)) {
+  const worrySnap = await worriesRef.doc(id).get();
+  if (!worrySnap.exists) throw new NotFoundError();
+  if (!worryExistsOnDate(worrySnap.data(), date)) {
     return res.status(400).json({ error: '해당 날짜의 고민 목록에 포함되지 않습니다.' });
   }
 
+  const attemptRef = worriesRef.doc(id).collection(WORRY_ATTEMPTS).doc(date);
   if (attempted) {
-    db.prepare(`
-      INSERT INTO unconscious_worry_attempts (worry_id, date, attempted)
-      VALUES (?, ?, 1)
-      ON CONFLICT(worry_id, date) DO UPDATE SET attempted = 1
-    `).run(id, date);
+    await firestore.runTransaction(async (tx) => {
+      const snap = await tx.get(attemptRef);
+      if (!snap.exists) {
+        tx.set(attemptRef, { worry_id: Number(id), date, attempted: 1, created_at: nowString() });
+      } else {
+        tx.update(attemptRef, { attempted: 1 });
+      }
+    });
   } else {
-    db.prepare('DELETE FROM unconscious_worry_attempts WHERE worry_id = ? AND date = ?').run(id, date);
+    await attemptRef.delete();
   }
 
   res.json({ worry_id: Number(id), date, attempted });
-});
+}));
 
 // GET /api/worries/stats?year=YYYY&month=1-12 - 캘린더 배지 통계
-router.get('/stats', (req, res) => {
+router.get('/stats', asyncHandler(async (req, res) => {
   const year = Number(req.query.year);
   const month = Number(req.query.month);
 
@@ -166,36 +180,35 @@ router.get('/stats', (req, res) => {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
   const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth(year, month)).padStart(2, '0')}`;
 
-  const worries = db
-    .prepare(`
-      SELECT * FROM unconscious_worries
-      WHERE substr(created_at, 1, 10) <= ?
-        AND (completed_at IS NULL OR substr(completed_at, 1, 10) >= ?)
-    `)
-    .all(monthEnd, monthStart);
-  const attempts = db
-    .prepare(`
-      SELECT worry_id, date FROM unconscious_worry_attempts
-      WHERE attempted = 1 AND date BETWEEN ? AND ?
-    `)
-    .all(monthStart, monthEnd);
+  const worriesSnap = await worriesRef.get();
+  const worries = worriesSnap.docs
+    .map((d) => d.data())
+    .filter((w) => dateOnly(w.created_at) <= monthEnd && (!w.completed_at || dateOnly(w.completed_at) >= monthStart));
 
-  const attemptedByDate = attempts.reduce((acc, row) => {
-    (acc[row.date] ??= new Set()).add(row.worry_id);
-    return acc;
-  }, {});
+  const attemptsSnap = await firestore
+    .collectionGroup(WORRY_ATTEMPTS)
+    .where('attempted', '==', 1)
+    .where('date', '>=', monthStart)
+    .where('date', '<=', monthEnd)
+    .get();
+
+  const attemptedByDate = {};
+  attemptsSnap.forEach((d) => {
+    const a = d.data();
+    (attemptedByDate[a.date] ??= new Set()).add(a.worry_id);
+  });
 
   const stats = [];
   for (let day = 1; day <= daysInMonth(year, month); day += 1) {
     const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const total = worries.filter((worry) => worryExistsOnDate(worry, date)).length;
-    const attempted = worries.filter((worry) => {
-      return worryExistsOnDate(worry, date) && attemptedByDate[date]?.has(worry.id);
-    }).length;
+    const total = worries.filter((w) => worryExistsOnDate(w, date)).length;
+    const attempted = worries.filter(
+      (w) => worryExistsOnDate(w, date) && attemptedByDate[date]?.has(w.id)
+    ).length;
     stats.push({ date, attempted, total });
   }
 
   res.json({ year, month, stats });
-});
+}));
 
 module.exports = router;

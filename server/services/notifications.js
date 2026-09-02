@@ -1,8 +1,10 @@
-const db = require('../db/database');
+const { firestore } = require('../db/firestore');
+const { NOTIFICATION_WEBHOOKS } = require('../db/collections');
 
 // 등록된 활성 웹훅 전체에 업무 시작 알림 전송 — /api/notify 라우트와 scheduler.js가 공유
 async function sendWorkStartNotification(title) {
-  const webhooks = db.prepare('SELECT * FROM notification_webhooks WHERE enabled = 1').all();
+  const snap = await firestore.collection(NOTIFICATION_WEBHOOKS).where('enabled', '==', 1).get();
+  const webhooks = snap.docs.map((d) => d.data());
   if (webhooks.length === 0) return [];
 
   const message = `${title} 업무 시간입니다`;

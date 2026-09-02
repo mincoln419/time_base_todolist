@@ -1,8 +1,11 @@
 const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
-const db = require('../db/database');
+const { firestore } = require('../db/firestore');
+const { DAILY_NOTES, COUNTER_KEYS } = require('../db/collections');
+const { nowString, nextId, NotFoundError, asyncHandler } = require('../db/util');
 
 const router = express.Router();
+const notesRef = firestore.collection(DAILY_NOTES);
 
 const MAX_CONTENT_LENGTH = 2000;
 
@@ -11,8 +14,7 @@ const ANTHROPIC_API_KEY = process.env.CLAUDE_KEY || process.env.CLAUD_KEY;
 const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
 
 function todayDateString() {
-  const row = db.prepare("SELECT date('now', 'localtime') AS d").get();
-  return row.d;
+  return nowString().slice(0, 10);
 }
 
 // 해시태그 스타일 다중 키워드 — 쉼표로 구분된 토큰을 trim·중복 제거 후 다시 쉼표로 합친다
@@ -22,21 +24,22 @@ function normalizeKeyword(raw) {
 }
 
 // GET /api/daily-notes — 목록 조회 (date 또는 month 쿼리로 필터링, date 우선)
-router.get('/', (req, res) => {
+// month는 SQL의 LIKE 'YYYY-MM%' 대체용으로 비정규화해 저장한 필드.
+router.get('/', asyncHandler(async (req, res) => {
   const { date, month } = req.query;
-  let rows;
+  let snap;
   if (date) {
-    rows = db.prepare('SELECT * FROM daily_notes WHERE date = ? ORDER BY date DESC, id DESC').all(date);
+    snap = await notesRef.where('date', '==', date).orderBy('id', 'desc').get();
   } else if (month) {
-    rows = db.prepare("SELECT * FROM daily_notes WHERE date LIKE ? ORDER BY date DESC, id DESC").all(`${month}%`);
+    snap = await notesRef.where('month', '==', month).orderBy('date', 'desc').orderBy('id', 'desc').get();
   } else {
-    rows = db.prepare('SELECT * FROM daily_notes ORDER BY date DESC, id DESC').all();
+    snap = await notesRef.orderBy('date', 'desc').orderBy('id', 'desc').get();
   }
-  res.json(rows);
-});
+  res.json(snap.docs.map((d) => d.data()));
+}));
 
 // POST /api/daily-notes — 새 노트 생성
-router.post('/', (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const keyword = normalizeKeyword(req.body.keyword);
   if (!keyword) return res.status(400).json({ error: '키워드를 1개 이상 입력해주세요.' });
 
@@ -49,14 +52,18 @@ router.post('/', (req, res) => {
   const category = (req.body.category || '').trim() || null;
   const item = (req.body.item || '').trim() || null;
 
-  const result = db.prepare(`
-    INSERT INTO daily_notes (date, keyword, category, item, content)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(date, keyword, category, item, content);
+  const note = await firestore.runTransaction(async (tx) => {
+    const id = await nextId(tx, COUNTER_KEYS.DAILY_NOTES);
+    const doc = {
+      id, date, month: date.slice(0, 7), keyword, category, item, content,
+      created_at: nowString(), updated_at: nowString(),
+    };
+    tx.set(notesRef.doc(String(id)), doc);
+    return doc;
+  });
 
-  const row = db.prepare('SELECT * FROM daily_notes WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(row);
-});
+  res.status(201).json(note);
+}));
 
 // POST /api/daily-notes/extract-tags — AI(Claude)로 본문에서 카테고리/키워드 추출
 // DB에는 저장하지 않고 결과만 반환 — 클라이언트가 입력란에 채워 넣을지 사용자가 직접 결정
@@ -124,9 +131,10 @@ router.post('/extract-tags', async (req, res) => {
 });
 
 // PUT /api/daily-notes/:id — 노트 수정 (전체 필드 upsert)
-router.put('/:id', (req, res) => {
-  const existing = db.prepare('SELECT id FROM daily_notes WHERE id = ?').get(req.params.id);
-  if (!existing) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.put('/:id', asyncHandler(async (req, res) => {
+  const ref = notesRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
 
   const keyword = normalizeKeyword(req.body.keyword);
   if (!keyword) return res.status(400).json({ error: '키워드를 1개 이상 입력해주세요.' });
@@ -140,22 +148,20 @@ router.put('/:id', (req, res) => {
   const category = (req.body.category || '').trim() || null;
   const item = (req.body.item || '').trim() || null;
 
-  db.prepare(`
-    UPDATE daily_notes
-    SET date = ?, keyword = ?, category = ?, item = ?, content = ?,
-        updated_at = datetime('now', 'localtime')
-    WHERE id = ?
-  `).run(date, keyword, category, item, content, req.params.id);
-
-  const row = db.prepare('SELECT * FROM daily_notes WHERE id = ?').get(req.params.id);
-  res.json(row);
-});
+  const updated = {
+    ...snap.data(), date, month: date.slice(0, 7), keyword, category, item, content, updated_at: nowString(),
+  };
+  await ref.set(updated);
+  res.json(updated);
+}));
 
 // DELETE /api/daily-notes/:id — 노트 삭제
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM daily_notes WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const ref = notesRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
+  await ref.delete();
   res.status(204).send();
-});
+}));
 
 module.exports = router;

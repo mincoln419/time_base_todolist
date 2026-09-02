@@ -1,44 +1,57 @@
 const express = require('express');
-const db = require('../db/database');
+const { firestore } = require('../db/firestore');
+const { TICKETS } = require('../db/collections');
+const { NotFoundError, asyncHandler } = require('../db/util');
 
 const router = express.Router();
+const ticketsRef = firestore.collection(TICKETS);
 
 // GET /api/tickets — 전체 고객사의 티켓 목록 조회 (캘린더용, 고객사명 포함)
-router.get('/', (req, res) => {
-  const rows = db.prepare(`
-    SELECT tickets.*, customers.name AS customer_name
-    FROM tickets
-    JOIN customers ON customers.id = tickets.customer_id
-    ORDER BY (tickets.desired_date IS NULL), tickets.desired_date ASC, tickets.id ASC
-  `).all();
+// SQL의 "ORDER BY (desired_date IS NULL), desired_date ASC, id ASC" (nulls last)는
+// Firestore 쿼리로 직접 표현할 수 없어 전체를 읽은 뒤 JS에서 동일하게 정렬한다.
+router.get('/', asyncHandler(async (req, res) => {
+  const snap = await ticketsRef.get();
+  const rows = snap.docs.map((d) => d.data());
+  rows.sort((a, b) => {
+    if (a.desired_date == null && b.desired_date == null) return a.id - b.id;
+    if (a.desired_date == null) return 1;
+    if (b.desired_date == null) return -1;
+    return a.desired_date.localeCompare(b.desired_date) || a.id - b.id;
+  });
   res.json(rows);
-});
+}));
 
 // PATCH /api/tickets/:id/toggle — 등록 상태(registered) 반전
-router.patch('/:id/toggle', (req, res) => {
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
-  if (!ticket) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.patch('/:id/toggle', asyncHandler(async (req, res) => {
+  const ref = ticketsRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
 
-  const registered = ticket.registered ? 0 : 1;
-  db.prepare('UPDATE tickets SET registered = ? WHERE id = ?').run(registered, req.params.id);
-  res.json(db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id));
-});
+  const updated = { ...snap.data(), registered: snap.data().registered ? 0 : 1 };
+  await ref.set(updated);
+  const { customer_name, ...rest } = updated;
+  res.json(rest);
+}));
 
 // PATCH /api/tickets/:id/desired-date — 희망 일자 수정 (빈 값이면 해제)
-router.patch('/:id/desired-date', (req, res) => {
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
-  if (!ticket) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.patch('/:id/desired-date', asyncHandler(async (req, res) => {
+  const ref = ticketsRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
 
-  const { desired_date } = req.body;
-  db.prepare('UPDATE tickets SET desired_date = ? WHERE id = ?').run(desired_date || null, req.params.id);
-  res.json(db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id));
-});
+  const updated = { ...snap.data(), desired_date: req.body.desired_date || null };
+  await ref.set(updated);
+  const { customer_name, ...rest } = updated;
+  res.json(rest);
+}));
 
 // DELETE /api/tickets/:id — 티켓 삭제
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM tickets WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const ref = ticketsRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
+  await ref.delete();
   res.status(204).send();
-});
+}));
 
 module.exports = router;
