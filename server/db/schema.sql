@@ -162,6 +162,47 @@ CREATE TABLE IF NOT EXISTS daily_notes (
 
 CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
+-- 회의록 (날짜 기준, 하루 여러 건 허용 — UNIQUE 제약 없음)
+CREATE TABLE IF NOT EXISTS meetings (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  date       TEXT    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 회의록 "전체" 섹션 — 공유(share) / 요청(request) / 진행프로젝트(project)
+CREATE TABLE IF NOT EXISTS meeting_overall_items (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  kind       TEXT    NOT NULL DEFAULT 'share' CHECK (kind IN ('share', 'request', 'project')),
+  content    TEXT    NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 회의록 "파트별" 섹션 — 담당자/진행사항/요청사항
+CREATE TABLE IF NOT EXISTS meeting_part_items (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  assignee   TEXT    NOT NULL,
+  progress   TEXT,
+  request    TEXT,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- 회의록 "액션아이템" 섹션 — 업무구분/내용/상태/기한/담당자 (수동 입력 + AI 자동생성 공용)
+CREATE TABLE IF NOT EXISTS meeting_action_items (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  task_type  TEXT    NOT NULL DEFAULT '기타',
+  content    TEXT    NOT NULL,
+  status     TEXT    NOT NULL DEFAULT '대기' CHECK (status IN ('대기', '진행중', '완료')),
+  due_date   TEXT,
+  assignee   TEXT,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
 -- 목표와 별도로 관리하는 버킷리스트
 CREATE TABLE IF NOT EXISTS bucket_list_items (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
