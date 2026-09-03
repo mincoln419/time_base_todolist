@@ -371,12 +371,17 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
             const b = nodesByIdRef.current.get(link.target);
             if (!a || !b) return null;
             const touchesSelected = a.id === selectedId || b.id === selectedId;
+            const draggedId = dragRef.current?.id;
+            // 양 끝 노드 중 드래그 중인 노드가 있으면 그 끝은 커서와 함께 즉시 움직여야 하므로
+            // transition을 걸지 않는다 — 그래야 원(위에서 transition 적용)과 선이 따로 놀지 않는다.
+            const isDraggingEndpoint = a.id === draggedId || b.id === draggedId;
             return (
               <line
                 key={i}
                 x1={a.x} y1={a.y} x2={b.x} y2={b.y}
                 stroke={touchesSelected ? '#93c5fd' : '#e2e8f0'}
                 strokeWidth={touchesSelected ? 2.5 : 1.5}
+                style={{ transition: isDraggingEndpoint ? 'none' : 'x1 150ms ease-out, y1 150ms ease-out, x2 150ms ease-out, y2 150ms ease-out' }}
               />
             );
           })}
@@ -385,10 +390,15 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
             if (!node) return null;
             const isSelected = note.id === selectedId;
             const r = visualRadius(degree[note.id] ?? 0) * scale;
+            // 드래그 중인 노드 자신은 커서와 1:1로 붙어야 하므로 transition을 걸지 않는다.
+            // 그 외 노드(특히 드래그로 늘어난 링크에 끌려오는 이웃)는 위치가 목표 거리로
+            // 즉시 스냅되면서 뚝뚝 끊겨 보였는데, transform에 transition을 걸어 매끄럽게 만든다.
+            const isDragging = dragRef.current?.id === note.id;
             return (
               <g
                 key={note.id}
                 transform={`translate(${node.x}, ${node.y})`}
+                style={{ transition: isDragging ? 'none' : 'transform 150ms ease-out' }}
                 onPointerDown={handlePointerDown(note.id)}
                 onPointerUp={endDrag(note.id)}
                 onMouseEnter={() => setHoveredId(note.id)}
