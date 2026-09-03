@@ -1,92 +1,105 @@
 const express = require('express');
-const db = require('../db/database');
+const { firestore } = require('../db/firestore');
+const { FOCUS_MAP, COUNTER_KEYS } = require('../db/collections');
+const { nowString, nextId, NotFoundError, ConflictError, asyncHandler } = require('../db/util');
 
 const router = express.Router();
+const focusMapRef = firestore.collection(FOCUS_MAP);
 
 function toData(body) {
-  return JSON.stringify({
+  return {
     items: body.items ?? [],
     step: body.step ?? 0,
     cursor: body.cursor ?? 0,
     addedTaskIds: body.addedTaskIds ?? [],
-  });
+  };
 }
 
-function serialize(row) {
-  const data = JSON.parse(row.data);
+function serialize(doc) {
+  const data = doc.data;
   return {
-    id: row.id,
-    goal: row.goal,
+    id: doc.id,
+    goal: doc.goal,
     items: data.items,
     step: data.step,
     cursor: data.cursor,
     addedTaskIds: data.addedTaskIds,
-    updatedAt: row.updated_at,
+    updatedAt: doc.updated_at,
   };
 }
 
 // GET /api/focusmap — 저장된 세션 요약 리스트 (updated_at desc)
-router.get('/', (req, res) => {
-  const rows = db.prepare('SELECT * FROM focus_map ORDER BY updated_at DESC').all();
-  const list = rows.map((row) => {
-    const data = JSON.parse(row.data);
-    const items = data.items || [];
+router.get('/', asyncHandler(async (req, res) => {
+  const snap = await focusMapRef.orderBy('updated_at', 'desc').get();
+  const list = snap.docs.map((d) => {
+    const doc = d.data();
+    const items = doc.data.items || [];
     const goldCount = items.filter((it) => it.impact >= 4 && it.ability >= 4).length;
     return {
-      id: row.id,
-      goal: row.goal,
-      updatedAt: row.updated_at,
-      step: data.step,
+      id: doc.id,
+      goal: doc.goal,
+      updatedAt: doc.updated_at,
+      step: doc.data.step,
       itemCount: items.length,
       goldCount,
     };
   });
   res.json(list);
-});
+}));
 
 // GET /api/focusmap/:id — 세션 전체 상태 조회
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM focus_map WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: '찾을 수 없습니다.' });
-  res.json(serialize(row));
-});
+router.get('/:id', asyncHandler(async (req, res) => {
+  const snap = await focusMapRef.doc(req.params.id).get();
+  if (!snap.exists) throw new NotFoundError();
+  res.json(serialize(snap.data()));
+}));
 
 // POST /api/focusmap — 새 세션 생성
-router.post('/', (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const goal = (req.body.goal || '').trim();
   if (!goal) return res.status(400).json({ error: '목표를 입력해주세요.' });
 
-  const dup = db.prepare('SELECT id FROM focus_map WHERE goal = ?').get(goal);
-  if (dup) return res.status(409).json({ error: '이미 저장된 목표입니다.' });
+  const doc = await firestore.runTransaction(async (tx) => {
+    const dupSnap = await tx.get(focusMapRef.where('goal', '==', goal).limit(1));
+    if (!dupSnap.empty) throw new ConflictError('이미 저장된 목표입니다.');
 
-  const result = db.prepare('INSERT INTO focus_map (goal, data) VALUES (?, ?)').run(goal, toData(req.body));
-  const row = db.prepare('SELECT * FROM focus_map WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(serialize(row));
-});
+    const id = await nextId(tx, COUNTER_KEYS.FOCUS_MAP);
+    const newDoc = { id, goal, data: toData(req.body), updated_at: nowString() };
+    tx.set(focusMapRef.doc(String(id)), newDoc);
+    return newDoc;
+  });
+  res.status(201).json(serialize(doc));
+}));
 
 // PUT /api/focusmap/:id — 세션 갱신 (upsert)
-router.put('/:id', (req, res) => {
-  const existing = db.prepare('SELECT id FROM focus_map WHERE id = ?').get(req.params.id);
-  if (!existing) return res.status(404).json({ error: '찾을 수 없습니다.' });
-
+router.put('/:id', asyncHandler(async (req, res) => {
   const goal = (req.body.goal || '').trim();
   if (!goal) return res.status(400).json({ error: '목표를 입력해주세요.' });
 
-  const dup = db.prepare('SELECT id FROM focus_map WHERE goal = ? AND id != ?').get(goal, req.params.id);
-  if (dup) return res.status(409).json({ error: '이미 저장된 목표입니다.' });
+  const ref = focusMapRef.doc(req.params.id);
+  const doc = await firestore.runTransaction(async (tx) => {
+    const current = await tx.get(ref);
+    if (!current.exists) throw new NotFoundError();
 
-  db.prepare(`
-    UPDATE focus_map SET goal = ?, data = ?, updated_at = datetime('now', 'localtime') WHERE id = ?
-  `).run(goal, toData(req.body), req.params.id);
-  const row = db.prepare('SELECT * FROM focus_map WHERE id = ?').get(req.params.id);
-  res.json(serialize(row));
-});
+    const dupSnap = await tx.get(focusMapRef.where('goal', '==', goal).limit(1));
+    if (!dupSnap.empty && dupSnap.docs[0].id !== req.params.id) {
+      throw new ConflictError('이미 저장된 목표입니다.');
+    }
+
+    const newDoc = { id: current.data().id, goal, data: toData(req.body), updated_at: nowString() };
+    tx.set(ref, newDoc);
+    return newDoc;
+  });
+  res.json(serialize(doc));
+}));
 
 // DELETE /api/focusmap/:id — 세션 삭제
-router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM focus_map WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: '찾을 수 없습니다.' });
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const ref = focusMapRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new NotFoundError();
+  await ref.delete();
   res.status(204).send();
-});
+}));
 
 module.exports = router;

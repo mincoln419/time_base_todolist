@@ -6,9 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **time_based_todolist** — 1시간 단위 수기 시간 입력으로 하루 일과를 계획하고, Drag & Drop으로 할일을 시간대에 배치하며, 상태 업데이트로 진행을 점검하는 일정관리 프로그램.
 
-**Stack**: React (Vite) + Express + SQLite (`better-sqlite3`)  
+**Stack**: React (Vite) + Express + Firebase Firestore (`firebase-admin`, 서버에서만 접근)  
 **DnD**: `@dnd-kit/core`  
 **Styling**: Tailwind CSS
+
+> 2026-09 SQLite(`node:sqlite`) → Firestore로 마이그레이션 완료. 원본 SQLite 데이터(`data/todo.db`)는
+> 롤백 대비 보관 중이며, 서버는 이제 `firebase-admin`으로만 Firestore에 접근한다(클라이언트에는
+> Firebase SDK를 노출하지 않음, REST API 계약은 이전과 동일하게 유지).
 
 ## Commands
 
@@ -28,8 +32,14 @@ cd client && npm install && npm run dev
 time_based_todolist/
 ├── server/
 │   ├── db/
-│   │   ├── schema.sql        # 테이블 정의
-│   │   └── database.js       # better-sqlite3 연결
+│   │   ├── firestore.js      # firebase-admin 초기화, Firestore 클라이언트 싱글턴
+│   │   ├── collections.js    # 컬렉션 이름 상수 (+ _counters 카운터 키)
+│   │   ├── util.js           # nowString/nextId/asyncHandler 등 공용 헬퍼
+│   │   ├── database.js       # (레거시) node:sqlite 연결 — 마이그레이션 스크립트 전용
+│   │   └── schema.sql        # (레거시) 원본 SQLite 스키마, 참고용
+│   ├── scripts/
+│   │   ├── migrate-to-firestore.js  # 1회성 SQLite→Firestore 마이그레이션
+│   │   └── verify-migration.js      # 마이그레이션 결과 검증
 │   ├── routes/
 │   │   ├── tasks.js          # 할일 CRUD: GET/POST/DELETE /api/tasks
 │   │   └── schedules.js      # 시간 블록: GET/POST/PUT/DELETE /api/schedules/:date
@@ -45,7 +55,7 @@ time_based_todolist/
         └── App.jsx           # 날짜 상태 + 레이아웃
 ```
 
-**핵심 데이터 흐름**: 백로그 할일(tasks 테이블) → DnD → 시간 블록(schedules 테이블, date + hour 컬럼으로 연결)
+**핵심 데이터 흐름**: 백로그 할일(`tasks` 컬렉션) → DnD → 시간 블록(`schedules` 컬렉션, date + start_min 필드로 연결)
 
 **API 프록시**: `vite.config.js`에서 `/api` → `localhost:3001` 프록시 설정
 
@@ -54,7 +64,9 @@ time_based_todolist/
 | 변수 | 기본값 | 용도 |
 |------|--------|------|
 | `PORT` | `3001` | Express 서버 포트 |
-| `DB_PATH` | `./data/todo.db` | SQLite 파일 경로 |
+| `FIREBASE_PROJECT_ID` | 없음 (필수) | Firestore 프로젝트 ID |
+| `FIREBASE_SERVICE_ACCOUNT_PATH` | 없음 (필수) | 서비스 계정 키 JSON 경로(리포 루트 기준 상대경로, 파일 자체는 gitignore됨) |
+| `DB_PATH` | `./data/todo.db` | (레거시) 마이그레이션 스크립트가 참조하는 원본 SQLite 파일 경로 |
 | `CLAUDE_KEY` (또는 `CLAUD_KEY`) | 없음 (필수 — 리포 루트 `.env`, gitignore됨) | 데일리노트 "태그추출(AI)" 기능의 Anthropic API 키 |
 | `QWEN_KEY` | (필수) | 회의록 액션아이템 AI 자동생성용 API 키 — 프로젝트 루트 `.env`(gitignored)에 저장, 절대 커밋 금지 |
 | `MEETING_AI_API_URL` | Aliyun MaaS 엔드포인트로 하드코딩된 기본값 | 필요 시 `.env`에서 override |

@@ -1,9 +1,16 @@
-// Design Ref: §4/§5.4 — longgoals.js 헬퍼 패턴 재사용, AI 생성 라우트는 async이므로 handleRoute를 async-safe로 확장
 const express = require('express');
-const db = require('../db/database');
+const { firestore } = require('../db/firestore');
+const {
+  MEETINGS, MEETING_OVERALL_ITEMS, MEETING_PART_ITEMS, MEETING_ACTION_ITEMS, COUNTER_KEYS,
+} = require('../db/collections');
+const { nowString, nextId, nextIds, asyncHandler } = require('../db/util');
 const { generateActionItems } = require('../services/meetingAi');
 
 const router = express.Router();
+const meetingsRef = firestore.collection(MEETINGS);
+const overallItemsRef = firestore.collection(MEETING_OVERALL_ITEMS);
+const partItemsRef = firestore.collection(MEETING_PART_ITEMS);
+const actionItemsRef = firestore.collection(MEETING_ACTION_ITEMS);
 
 const VALID_OVERALL_KINDS = new Set(['share', 'request', 'project']);
 const VALID_ACTION_STATUSES = new Set(['대기', '진행중', '완료']);
@@ -23,189 +30,245 @@ function optionalText(value) {
   return text || null;
 }
 
-// Design Ref: §5.4 — 기존 longgoals.js의 handleRoute는 동기 전용. 이 라우트는 AI 생성(await)이 필요한
-// 최초의 라우트라 Promise.resolve로 감싸 동기/비동기 핸들러를 모두 지원하도록 확장한다.
-function handleRoute(fn) {
-  return (req, res, next) => {
-    // Design Ref: §5.4 — fn(req,res)를 .then() 콜백 안에서 호출해야 동기 throw도 프로미스 거부로 전환되어 catch에 잡힌다.
-    // Promise.resolve(fn(req,res))처럼 인자 평가 단계에서 바로 호출하면 동기 throw는 catch를 건너뛰고 그대로 전파된다.
-    Promise.resolve().then(() => fn(req, res)).catch((err) => {
-      if (err.status) return res.status(err.status).json({ error: err.message });
-      next(err);
-    });
-  };
-}
-
-function assertMeeting(id) {
-  const meeting = db.prepare('SELECT * FROM meetings WHERE id = ?').get(id);
-  if (!meeting) {
+async function assertMeeting(id) {
+  const snap = await meetingsRef.doc(String(id)).get();
+  if (!snap.exists) {
     const err = new Error('회의록을 찾을 수 없습니다.');
     err.status = 404;
     throw err;
   }
-  return meeting;
+  return snap.data();
 }
 
-function maxPosition(table, meetingId) {
-  return db.prepare(`SELECT COALESCE(MAX(position), -1) AS p FROM ${table} WHERE meeting_id = ?`).get(meetingId).p;
+async function notFound(ref, message) {
+  const snap = await ref.get();
+  if (!snap.exists) {
+    const err = new Error(message);
+    err.status = 404;
+    throw err;
+  }
+  return snap.data();
 }
 
-router.get('/', handleRoute((req, res) => {
-  const meetings = db.prepare('SELECT * FROM meetings ORDER BY date DESC, id DESC').all();
+async function nextPosition(tx, ref, meetingId) {
+  const maxSnap = await tx.get(ref.where('meeting_id', '==', Number(meetingId)).orderBy('position', 'desc').limit(1));
+  return maxSnap.empty ? 0 : maxSnap.docs[0].data().position + 1;
+}
+
+router.get('/', asyncHandler(async (req, res) => {
+  const snap = await meetingsRef.get();
+  const meetings = snap.docs.map((d) => d.data()).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
   res.json(meetings);
 }));
 
-router.post('/', handleRoute((req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const date = requireTitle(req.body.date, '회의 날짜를 입력해주세요.');
-  const result = db.prepare('INSERT INTO meetings (date) VALUES (?)').run(date);
-  res.status(201).json(db.prepare('SELECT * FROM meetings WHERE id = ?').get(result.lastInsertRowid));
+
+  const meeting = await firestore.runTransaction(async (tx) => {
+    const id = await nextId(tx, COUNTER_KEYS.MEETINGS);
+    const doc = { id, date, created_at: nowString() };
+    tx.set(meetingsRef.doc(String(id)), doc);
+    return doc;
+  });
+
+  res.status(201).json(meeting);
 }));
 
-router.get('/:id', handleRoute((req, res) => {
-  const meeting = assertMeeting(req.params.id);
-  const overall_items = db.prepare('SELECT * FROM meeting_overall_items WHERE meeting_id = ? ORDER BY position ASC, id ASC').all(meeting.id);
-  const part_items = db.prepare('SELECT * FROM meeting_part_items WHERE meeting_id = ? ORDER BY position ASC, id ASC').all(meeting.id);
-  const action_items = db.prepare('SELECT * FROM meeting_action_items WHERE meeting_id = ? ORDER BY position ASC, id ASC').all(meeting.id);
-  res.json({ meeting, overall_items, part_items, action_items });
+router.get('/:id', asyncHandler(async (req, res) => {
+  const meeting = await assertMeeting(req.params.id);
+  const meetingId = meeting.id;
+
+  const [overallSnap, partSnap, actionSnap] = await Promise.all([
+    overallItemsRef.where('meeting_id', '==', meetingId).get(),
+    partItemsRef.where('meeting_id', '==', meetingId).get(),
+    actionItemsRef.where('meeting_id', '==', meetingId).get(),
+  ]);
+  const byPosition = (a, b) => a.position - b.position || a.id - b.id;
+
+  res.json({
+    meeting,
+    overall_items: overallSnap.docs.map((d) => d.data()).sort(byPosition),
+    part_items: partSnap.docs.map((d) => d.data()).sort(byPosition),
+    action_items: actionSnap.docs.map((d) => d.data()).sort(byPosition),
+  });
 }));
 
-router.delete('/:id', handleRoute((req, res) => {
-  const result = db.prepare('DELETE FROM meetings WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: '회의록을 찾을 수 없습니다.' });
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const ref = meetingsRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) return res.status(404).json({ error: '회의록을 찾을 수 없습니다.' });
+
+  const meetingId = Number(req.params.id);
+  const [overallSnap, partSnap, actionSnap] = await Promise.all([
+    overallItemsRef.where('meeting_id', '==', meetingId).get(),
+    partItemsRef.where('meeting_id', '==', meetingId).get(),
+    actionItemsRef.where('meeting_id', '==', meetingId).get(),
+  ]);
+  const batch = firestore.batch();
+  overallSnap.forEach((d) => batch.delete(d.ref));
+  partSnap.forEach((d) => batch.delete(d.ref));
+  actionSnap.forEach((d) => batch.delete(d.ref));
+  batch.delete(ref);
+  await batch.commit();
+
   res.status(204).send();
 }));
 
 // --- 전체 섹션 ---
 
-router.post('/:meetingId/overall-items', handleRoute((req, res) => {
+router.post('/:meetingId/overall-items', asyncHandler(async (req, res) => {
   const meetingId = req.params.meetingId;
-  assertMeeting(meetingId);
+  await assertMeeting(meetingId);
   const content = requireTitle(req.body.content, '내용을 입력해주세요.');
   const kind = VALID_OVERALL_KINDS.has(req.body.kind) ? req.body.kind : 'share';
-  const position = maxPosition('meeting_overall_items', meetingId) + 1;
 
-  const result = db.prepare(`
-    INSERT INTO meeting_overall_items (meeting_id, kind, content, position)
-    VALUES (?, ?, ?, ?)
-  `).run(meetingId, kind, content, position);
+  const item = await firestore.runTransaction(async (tx) => {
+    const position = await nextPosition(tx, overallItemsRef, meetingId);
+    const id = await nextId(tx, COUNTER_KEYS.MEETING_OVERALL_ITEMS);
+    const doc = { id, meeting_id: Number(meetingId), kind, content, position, created_at: nowString() };
+    tx.set(overallItemsRef.doc(String(id)), doc);
+    return doc;
+  });
 
-  res.status(201).json(db.prepare('SELECT * FROM meeting_overall_items WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(item);
 }));
 
-router.patch('/overall-items/:id', handleRoute((req, res) => {
-  const current = db.prepare('SELECT * FROM meeting_overall_items WHERE id = ?').get(req.params.id);
-  if (!current) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+router.patch('/overall-items/:id', asyncHandler(async (req, res) => {
+  const ref = overallItemsRef.doc(req.params.id);
+  const current = await notFound(ref, '항목을 찾을 수 없습니다.');
   const content = req.body.content == null ? current.content : requireTitle(req.body.content, '내용을 입력해주세요.');
   const kind = req.body.kind == null
     ? current.kind
     : (VALID_OVERALL_KINDS.has(req.body.kind) ? req.body.kind : current.kind);
 
-  db.prepare('UPDATE meeting_overall_items SET kind = ?, content = ? WHERE id = ?').run(kind, content, req.params.id);
-  res.json(db.prepare('SELECT * FROM meeting_overall_items WHERE id = ?').get(req.params.id));
+  const updated = { ...current, kind, content };
+  await ref.set(updated);
+  res.json(updated);
 }));
 
-router.delete('/overall-items/:id', handleRoute((req, res) => {
-  const result = db.prepare('DELETE FROM meeting_overall_items WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+router.delete('/overall-items/:id', asyncHandler(async (req, res) => {
+  const ref = overallItemsRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+  await ref.delete();
   res.status(204).send();
 }));
 
 // --- 파트별 섹션 ---
 
-router.post('/:meetingId/part-items', handleRoute((req, res) => {
+router.post('/:meetingId/part-items', asyncHandler(async (req, res) => {
   const meetingId = req.params.meetingId;
-  assertMeeting(meetingId);
+  await assertMeeting(meetingId);
   const assignee = requireTitle(req.body.assignee, '담당자를 입력해주세요.');
   const progress = optionalText(req.body.progress);
   const request = optionalText(req.body.request);
-  const position = maxPosition('meeting_part_items', meetingId) + 1;
 
-  const result = db.prepare(`
-    INSERT INTO meeting_part_items (meeting_id, assignee, progress, request, position)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(meetingId, assignee, progress, request, position);
+  const item = await firestore.runTransaction(async (tx) => {
+    const position = await nextPosition(tx, partItemsRef, meetingId);
+    const id = await nextId(tx, COUNTER_KEYS.MEETING_PART_ITEMS);
+    const doc = { id, meeting_id: Number(meetingId), assignee, progress, request, position, created_at: nowString() };
+    tx.set(partItemsRef.doc(String(id)), doc);
+    return doc;
+  });
 
-  res.status(201).json(db.prepare('SELECT * FROM meeting_part_items WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(item);
 }));
 
-router.patch('/part-items/:id', handleRoute((req, res) => {
-  const current = db.prepare('SELECT * FROM meeting_part_items WHERE id = ?').get(req.params.id);
-  if (!current) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+router.patch('/part-items/:id', asyncHandler(async (req, res) => {
+  const ref = partItemsRef.doc(req.params.id);
+  const current = await notFound(ref, '항목을 찾을 수 없습니다.');
   const assignee = req.body.assignee == null ? current.assignee : requireTitle(req.body.assignee, '담당자를 입력해주세요.');
   const progress = req.body.progress == null ? current.progress : optionalText(req.body.progress);
   const request = req.body.request == null ? current.request : optionalText(req.body.request);
 
-  db.prepare('UPDATE meeting_part_items SET assignee = ?, progress = ?, request = ? WHERE id = ?')
-    .run(assignee, progress, request, req.params.id);
-  res.json(db.prepare('SELECT * FROM meeting_part_items WHERE id = ?').get(req.params.id));
+  const updated = { ...current, assignee, progress, request };
+  await ref.set(updated);
+  res.json(updated);
 }));
 
-router.delete('/part-items/:id', handleRoute((req, res) => {
-  const result = db.prepare('DELETE FROM meeting_part_items WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+router.delete('/part-items/:id', asyncHandler(async (req, res) => {
+  const ref = partItemsRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+  await ref.delete();
   res.status(204).send();
 }));
 
 // --- 액션아이템 섹션 ---
 
-router.post('/:meetingId/action-items', handleRoute((req, res) => {
+router.post('/:meetingId/action-items', asyncHandler(async (req, res) => {
   const meetingId = req.params.meetingId;
-  assertMeeting(meetingId);
+  await assertMeeting(meetingId);
   const content = requireTitle(req.body.content, '내용을 입력해주세요.');
-  const taskType = optionalText(req.body.task_type) ?? '기타';
+  const task_type = optionalText(req.body.task_type) ?? '기타';
   const status = req.body.status ?? '대기';
   if (!VALID_ACTION_STATUSES.has(status)) return res.status(400).json({ error: '올바른 상태가 아닙니다.' });
-  const dueDate = optionalText(req.body.due_date);
+  const due_date = optionalText(req.body.due_date);
   const assignee = optionalText(req.body.assignee);
-  const position = maxPosition('meeting_action_items', meetingId) + 1;
 
-  const result = db.prepare(`
-    INSERT INTO meeting_action_items (meeting_id, task_type, content, status, due_date, assignee, position)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(meetingId, taskType, content, status, dueDate, assignee, position);
+  const item = await firestore.runTransaction(async (tx) => {
+    const position = await nextPosition(tx, actionItemsRef, meetingId);
+    const id = await nextId(tx, COUNTER_KEYS.MEETING_ACTION_ITEMS);
+    const doc = {
+      id, meeting_id: Number(meetingId), task_type, content, status, due_date, assignee, position,
+      created_at: nowString(),
+    };
+    tx.set(actionItemsRef.doc(String(id)), doc);
+    return doc;
+  });
 
-  res.status(201).json(db.prepare('SELECT * FROM meeting_action_items WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(item);
 }));
 
-router.patch('/action-items/:id', handleRoute((req, res) => {
-  const current = db.prepare('SELECT * FROM meeting_action_items WHERE id = ?').get(req.params.id);
-  if (!current) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+router.patch('/action-items/:id', asyncHandler(async (req, res) => {
+  const ref = actionItemsRef.doc(req.params.id);
+  const current = await notFound(ref, '항목을 찾을 수 없습니다.');
   const content = req.body.content == null ? current.content : requireTitle(req.body.content, '내용을 입력해주세요.');
-  const taskType = req.body.task_type == null ? current.task_type : (optionalText(req.body.task_type) ?? '기타');
+  const task_type = req.body.task_type == null ? current.task_type : (optionalText(req.body.task_type) ?? '기타');
   const status = req.body.status ?? current.status;
   if (!VALID_ACTION_STATUSES.has(status)) return res.status(400).json({ error: '올바른 상태가 아닙니다.' });
-  const dueDate = req.body.due_date == null ? current.due_date : optionalText(req.body.due_date);
+  const due_date = req.body.due_date == null ? current.due_date : optionalText(req.body.due_date);
   const assignee = req.body.assignee == null ? current.assignee : optionalText(req.body.assignee);
 
-  db.prepare(`
-    UPDATE meeting_action_items SET task_type = ?, content = ?, status = ?, due_date = ?, assignee = ?
-    WHERE id = ?
-  `).run(taskType, content, status, dueDate, assignee, req.params.id);
-  res.json(db.prepare('SELECT * FROM meeting_action_items WHERE id = ?').get(req.params.id));
+  const updated = { ...current, content, task_type, status, due_date, assignee };
+  await ref.set(updated);
+  res.json(updated);
 }));
 
-router.delete('/action-items/:id', handleRoute((req, res) => {
-  const result = db.prepare('DELETE FROM meeting_action_items WHERE id = ?').run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+router.delete('/action-items/:id', asyncHandler(async (req, res) => {
+  const ref = actionItemsRef.doc(req.params.id);
+  const snap = await ref.get();
+  if (!snap.exists) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+  await ref.delete();
   res.status(204).send();
 }));
 
 // Design Ref: §5 — 회의 원문을 서버로만 전달, 외부 AI 호출/키는 서비스 계층에 격리
-router.post('/:meetingId/action-items/generate', handleRoute(async (req, res) => {
+router.post('/:meetingId/action-items/generate', asyncHandler(async (req, res) => {
   const meetingId = req.params.meetingId;
-  assertMeeting(meetingId);
+  await assertMeeting(meetingId);
   const notes = requireTitle(req.body.notes, '회의 원문을 입력해주세요.');
 
   const items = await generateActionItems(notes);
 
-  let position = maxPosition('meeting_action_items', meetingId);
-  const created = items.map((item) => {
-    position += 1;
-    const result = db.prepare(`
-      INSERT INTO meeting_action_items (meeting_id, task_type, content, status, due_date, assignee, position)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(meetingId, item.task_type, item.content, item.status, item.due_date, item.assignee, position);
-    return db.prepare('SELECT * FROM meeting_action_items WHERE id = ?').get(result.lastInsertRowid);
+  const created = await firestore.runTransaction(async (tx) => {
+    const startPosition = await nextPosition(tx, actionItemsRef, meetingId);
+    const ids = await nextIds(tx, COUNTER_KEYS.MEETING_ACTION_ITEMS, items.length);
+    return items.map((item, i) => {
+      const doc = {
+        id: ids[i],
+        meeting_id: Number(meetingId),
+        task_type: item.task_type,
+        content: item.content,
+        status: item.status,
+        due_date: item.due_date,
+        assignee: item.assignee,
+        position: startPosition + i,
+        created_at: nowString(),
+      };
+      tx.set(actionItemsRef.doc(String(doc.id)), doc);
+      return doc;
+    });
   });
 
   res.status(201).json(created);

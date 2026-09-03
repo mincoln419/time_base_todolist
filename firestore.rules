@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// 로그인/사용자 구분이 없는 단일 사용자 앱 — 브라우저에는 Firebase SDK를 노출하지 않고
+// Express 서버가 firebase-admin(관리자 권한, 이 규칙을 우회)으로만 접근한다.
+// 따라서 클라이언트발 요청은 기본적으로 전부 거부한다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -14,3 +14,5 @@ client/dist/
 .bkit/state/memory.json
 .bkit/state/pdca-status.json
 .bkit/state/session-history.json
+
+server/fir-mermer-firebase-adminsdk-swj4l-c1a1a1584d.json
