@@ -4,6 +4,7 @@ import DateNavigator from './components/DateNavigator';
 import TaskBacklog from './components/TaskBacklog/TaskBacklog';
 import TimeGrid from './components/TimeGrid/TimeGrid';
 import DayTimeline from './components/DayTimeline';
+import WeekTimeline from './components/WeekTimeline';
 import FocusMap from './components/FocusMap/FocusMap';
 import CustomerTickets from './components/CustomerTickets/CustomerTickets';
 import Calendar from './components/Calendar/Calendar';
@@ -31,6 +32,11 @@ const TABS = [
   { id: 'meetings', label: '회의록' },
 ];
 
+const SCHEDULE_VIEWS = [
+  { id: 'daily', label: '일간' },
+  { id: 'weekly', label: '주간' },
+];
+
 function toDateString(d) {
   return d.toISOString().slice(0, 10);
 }
@@ -41,6 +47,7 @@ const DAY_END_MIN = 24 * 60;
 
 export default function App() {
   const [tab, setTab] = useState('schedule');
+  const [scheduleView, setScheduleView] = useState('daily'); // 일정관리 내부 뷰 전환 — 데일리노트 VIEWS 패턴 재사용
   const [date, setDate] = useState(toDateString(new Date()));
   const [activeItem, setActiveItem] = useState(null); // DragOverlay용
   const [ticketFocus, setTicketFocus] = useState(null); // 캘린더 더블클릭 → 고객사 티켓 탭 딥링크
@@ -157,40 +164,65 @@ export default function App() {
       </nav>
 
       {tab === 'schedule' && (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex-1 flex min-h-0 overflow-hidden">
-            {/* 좌측 절반 — 기존 컨트롤 패널 */}
-            <div className="w-1/2 flex flex-col min-h-0">
-              <DateNavigator date={date} onChange={setDate} />
-              <TaskBacklog
-                tasks={tasks}
-                onAdd={addTask}
-                onDelete={async (id) => { await removeTask(id); }}
-              />
-              <TimeGrid
-                schedules={schedules}
-                onEditTitle={changeTitle}
-                onStatusChange={changeStatus}
-                onTimeChange={changeTime}
-                onRemove={removeSchedule}
-                onAddBlock={handleAddBlock}
-              />
-            </div>
-
-            {/* 우측 절반 — 24시간 타임라인 시각화 */}
-            <div className="w-1/2 flex flex-col min-h-0">
-              <DayTimeline schedules={schedules} date={date} />
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-shrink-0 px-4 pt-3">
+            <div className="flex gap-1 bg-gray-100 rounded p-1 w-fit">
+              {SCHEDULE_VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => setScheduleView(v.id)}
+                  className={
+                    'px-3 py-1 text-xs font-semibold rounded ' +
+                    (scheduleView === v.id ? 'bg-white text-blue-600 shadow' : 'text-gray-500 hover:text-gray-700')
+                  }
+                >
+                  {v.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <DragOverlay>
-            {activeItem ? (
-              <div className="px-3 py-2 bg-blue-100 border border-blue-300 rounded shadow-lg text-sm">
-                {activeItem.title}
+          {scheduleView === 'daily' && (
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+              <div className="flex-1 flex min-h-0 overflow-hidden">
+                {/* 좌측 절반 — 기존 컨트롤 패널 */}
+                <div className="w-1/2 flex flex-col min-h-0">
+                  <DateNavigator date={date} onChange={setDate} />
+                  <TaskBacklog
+                    tasks={tasks}
+                    onAdd={addTask}
+                    onDelete={async (id) => { await removeTask(id); }}
+                  />
+                  <TimeGrid
+                    schedules={schedules}
+                    onEditTitle={changeTitle}
+                    onStatusChange={changeStatus}
+                    onTimeChange={changeTime}
+                    onRemove={removeSchedule}
+                    onAddBlock={handleAddBlock}
+                  />
+                </div>
+
+                {/* 우측 절반 — 24시간 타임라인 시각화 */}
+                <div className="w-1/2 flex flex-col min-h-0">
+                  <DayTimeline schedules={schedules} date={date} />
+                </div>
               </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+
+              <DragOverlay>
+                {activeItem ? (
+                  <div className="px-3 py-2 bg-blue-100 border border-blue-300 rounded shadow-lg text-sm">
+                    {activeItem.title}
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
+
+          {scheduleView === 'weekly' && (
+            <WeekTimeline onSelectDate={(d) => { setDate(d); setScheduleView('daily'); }} />
+          )}
+        </div>
       )}
 
       {tab === 'focusmap' && (
