@@ -57,7 +57,7 @@ export default function App() {
     return { year: d.getFullYear(), month: d.getMonth() };
   }); // 탭을 벗어났다 돌아와도 보던 달을 유지하기 위해 App으로 끌어올린 상태
 
-  const { tasks, addTask, removeTask } = useTasks();
+  const { tasks, addTask, removeTask, markTaskUsed } = useTasks();
   const { schedules, addSchedule, changeTitle, changeStatus, changeTime, removeSchedule } = useSchedules(date);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -110,6 +110,7 @@ export default function App() {
       if (startMin == null) return;
       try {
         await addSchedule({ title: src.title, start_min: startMin, end_min: startMin + getDefaultDuration(startMin) });
+        await markTaskUsed(src.taskId); // 최근 사용순 정렬 갱신
       } catch (e) {
         alert(e.message);
       }
@@ -128,6 +129,7 @@ export default function App() {
     const target = tasks.find((t) => !scheduledTitles.has(t.title)) ?? tasks[0];
     try {
       await addSchedule({ title: target.title, start_min: startMin, end_min: startMin + DEFAULT_DURATION_MIN });
+      await markTaskUsed(target.id); // 최근 사용순 정렬 갱신
     } catch (e) {
       alert(e.message);
     }
