@@ -23,3 +23,9 @@ export async function deleteTask(id) {
   const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('삭제 실패');
 }
+
+export async function touchTask(id) {
+  const res = await fetch(`${BASE}/${id}/touch`, { method: 'PATCH' });
+  if (!res.ok) throw new Error('할일 사용 기록 실패');
+  return res.json();
+}

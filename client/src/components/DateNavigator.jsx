@@ -8,7 +8,12 @@ export default function DateNavigator({ date, onChange }) {
   return (
     <div className="flex items-center gap-4 p-4 bg-white border-b">
       <button onClick={() => move(-1)} className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200">◀</button>
-      <span className="text-lg font-semibold">{date}</span>
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="text-lg font-semibold border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      />
       <button onClick={() => move(1)} className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200">▶</button>
     </div>
   );

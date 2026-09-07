@@ -4,7 +4,9 @@ import { formatMinutes } from '../utils/time';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const WEEK_HOUR_HEIGHT = 32; // px per hour — DayTimeline(56)보다 작게 잡아 7컬럼에서도 한눈에 들어오게 함
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
+// DayTimeline.jsx와 동일하게 기본 08~19시만 보여주고, 그 범위를 벗어난 일정이 있으면 자동 확장
+const DEFAULT_START_HOUR = 8;
+const DEFAULT_END_HOUR = 19;
 
 // DayTimeline.jsx의 STATUS_STYLE과 동일한 값 — 공용 유틸 추출 없이 로컬 복제하는 기존 관례를 따름
 const STATUS_STYLE = {
@@ -35,6 +37,18 @@ function weekDates(weekStartStr) {
   });
 }
 
+function visibleHourRange(schedulesByDate) {
+  let startHour = DEFAULT_START_HOUR;
+  let endHour = DEFAULT_END_HOUR;
+  for (const list of Object.values(schedulesByDate)) {
+    for (const s of list) {
+      startHour = Math.min(startHour, Math.floor(s.start_min / 60));
+      endHour = Math.max(endHour, Math.ceil(s.end_min / 60));
+    }
+  }
+  return { startHour: Math.max(startHour, 0), endHour: Math.min(endHour, 24) };
+}
+
 export default function WeekTimeline({ onSelectDate }) {
   const todayStr = toDateString(new Date());
   const [weekStart, setWeekStart] = useState(() => startOfWeek(todayStr));
@@ -42,6 +56,9 @@ export default function WeekTimeline({ onSelectDate }) {
 
   const dates = weekDates(weekStart);
   const weekEnd = dates[6];
+  const { startHour, endHour } = visibleHourRange(schedulesByDate);
+  const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
+  const rangeStartMin = startHour * 60;
 
   const moveWeek = (deltaWeeks) => {
     const d = new Date(weekStart);
@@ -93,13 +110,13 @@ export default function WeekTimeline({ onSelectDate }) {
         {loading ? (
           <p className="text-sm text-gray-400 py-8 text-center">불러오는 중...</p>
         ) : (
-          <div className="flex relative" style={{ height: 24 * WEEK_HOUR_HEIGHT }}>
+          <div className="flex relative" style={{ height: hours.length * WEEK_HOUR_HEIGHT }}>
             <div className="w-10 flex-shrink-0 relative">
-              {HOURS.map((h) => (
+              {hours.map((h, i) => (
                 <span
                   key={h}
                   className="absolute left-1 text-[10px] text-gray-400 select-none"
-                  style={{ top: h * WEEK_HOUR_HEIGHT - 5 }}
+                  style={{ top: i * WEEK_HOUR_HEIGHT - 5 }}
                 >
                   {String(h).padStart(2, '0')}
                 </span>
@@ -110,11 +127,11 @@ export default function WeekTimeline({ onSelectDate }) {
               const isToday = date === todayStr;
               return (
                 <div key={date} className={'flex-1 relative border-l ' + (isToday ? 'bg-blue-50/40' : '')}>
-                  {HOURS.map((h) => (
+                  {hours.map((h, i) => (
                     <div
                       key={h}
                       className="absolute w-full border-b border-gray-100"
-                      style={{ top: h * WEEK_HOUR_HEIGHT, height: WEEK_HOUR_HEIGHT }}
+                      style={{ top: i * WEEK_HOUR_HEIGHT, height: WEEK_HOUR_HEIGHT }}
                     />
                   ))}
                   {(schedulesByDate[date] ?? []).map((s) => {
@@ -126,7 +143,7 @@ export default function WeekTimeline({ onSelectDate }) {
                         title={`${s.title} (${formatMinutes(s.start_min)}–${formatMinutes(s.end_min)})`}
                         className={`absolute border rounded px-1 overflow-hidden ${statusClass}`}
                         style={{
-                          top: (s.start_min / 60) * WEEK_HOUR_HEIGHT + 1,
+                          top: ((s.start_min - rangeStartMin) / 60) * WEEK_HOUR_HEIGHT + 1,
                           height: Math.max((durationMin / 60) * WEEK_HOUR_HEIGHT - 2, 10),
                           left: 2,
                           right: 2,

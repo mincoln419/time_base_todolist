@@ -1,7 +1,10 @@
 import { formatMinutes } from '../utils/time';
 
-const HOUR_HEIGHT = 56; // px per hour — 24h × 56 = 1344px total
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const HOUR_HEIGHT = 56; // px per hour
+// 기본으로는 업무시간대(TimeGrid의 WORK_START_MIN/WORK_END_MIN)에 여유를 둔 08~19시만 보여줘
+// 휠을 돌려 스크롤할 필요를 없앤다. 이 범위를 벗어난 일정이 있으면 그만큼만 자동으로 넓힌다.
+const DEFAULT_START_HOUR = 8;
+const DEFAULT_END_HOUR = 19;
 
 const STATUS_STYLE = {
   todo:        'bg-gray-100 border-gray-300 text-gray-700',
@@ -9,7 +12,21 @@ const STATUS_STYLE = {
   done:        'bg-green-100 border-green-400 text-green-800',
 };
 
+function visibleHourRange(schedules) {
+  let startHour = DEFAULT_START_HOUR;
+  let endHour = DEFAULT_END_HOUR;
+  for (const s of schedules) {
+    startHour = Math.min(startHour, Math.floor(s.start_min / 60));
+    endHour = Math.max(endHour, Math.ceil(s.end_min / 60));
+  }
+  return { startHour: Math.max(startHour, 0), endHour: Math.min(endHour, 24) };
+}
+
 export default function DayTimeline({ schedules, date }) {
+  const { startHour, endHour } = visibleHourRange(schedules);
+  const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
+  const rangeStartMin = startHour * 60;
+
   return (
     <div className="flex flex-col h-full bg-white border-l border-gray-200">
       <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
@@ -17,13 +34,13 @@ export default function DayTimeline({ schedules, date }) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="relative" style={{ height: `${24 * HOUR_HEIGHT}px` }}>
+        <div className="relative" style={{ height: `${hours.length * HOUR_HEIGHT}px` }}>
           {/* Hour rows */}
-          {HOURS.map((h) => (
+          {hours.map((h, i) => (
             <div
               key={h}
               className="absolute w-full border-b border-gray-100"
-              style={{ top: h * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+              style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
             >
               <span className="absolute left-2 top-1 text-xs text-gray-400 select-none w-10">
                 {String(h).padStart(2, '0')}:00
@@ -40,7 +57,7 @@ export default function DayTimeline({ schedules, date }) {
                 key={s.id}
                 className={`absolute border rounded-md px-2 py-1 overflow-hidden ${statusClass}`}
                 style={{
-                  top: (s.start_min / 60) * HOUR_HEIGHT + 1,
+                  top: ((s.start_min - rangeStartMin) / 60) * HOUR_HEIGHT + 1,
                   height: (durationMin / 60) * HOUR_HEIGHT - 2,
                   left: '3.5rem',
                   right: '0.5rem',
