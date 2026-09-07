@@ -1,35 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { forceSimulation, forceCollide, forceCenter } from 'd3-force';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { packSiblings, packEnclose } from 'd3-hierarchy';
 import { noteLabel, noteKeywords, renderNoteMarkdown } from './noteUtils';
 
-// Design Ref: 사용자가 참고로 제공한 D3 force-directed 마인드맵(d3.forceSimulation +
-// forceManyBody/forceCollide/forceCenter + drag)을 본떠 d3-force를 물리 엔진으로 채택.
-// DOM 바인딩은 d3-selection이 아니라 React+SVG로 직접 렌더링한다(jQuery/d3-selection 미사용).
+// Design Ref: 물리 시뮬레이션(d3-force) 기반 레이아웃은 드래그할 때마다 위치가 흔들리고
+// 링크 스프링을 손보다 보면 매번 다른 방식으로 부자연스러워 보이는 문제가 반복됐다.
+// 사용자 요청에 따라 "같은 클러스터(연결된 노트 묶음)는 원형으로 배치하고, 클러스터들은
+// 서로 겹치지 않게 균형 있게 배치"하는 결정론적(deterministic) 레이아웃으로 교체했다.
+// 클러스터 간 배치(겹치지 않는 원 패킹)는 d3-hierarchy의 packSiblings를 그대로 사용—
+// 이미 검증된 원 패킹 알고리즘을 직접 구현하지 않기 위함(d3-force 도입 때와 같은 이유).
 const CANVAS_W = 760;
 const CANVAS_H = 480;
 const NODE_R = 22;
 const LABEL_MAX = 10;
 const DRAG_CLICK_THRESHOLD = 4; // px — 이보다 적게 움직이면 드래그가 아니라 클릭으로 취급
 
-// 연결된 두 노드는 REST_MIN~STRETCH_LIMIT 사이에서는 서로 아무 힘도 주고받지 않고
-// 자유롭게 줄었다 늘었다 한다. REST_MIN 아래로 압축되면 정확히 REST_MIN까지만 밀어내고,
-// STRETCH_LIMIT을 넘어 늘어나면 REST_MAX 거리로 끌고 와서 유지한다.
-const REST_MIN = 40;
-const REST_MAX = 200;
-const STRETCH_LIMIT = 250;
-
 // 연결이 하나도 없는 노드는 글자 크기와 비슷한 점(DOT_R = 4px)에 가깝게 그린다.
 // 이 최초 노드 크기(DOT_R) 자체를 한 단위로 삼아, 엣지가 EDGES_PER_STEP(3)개 늘어날
 // 때마다 그 단위만큼 계단식으로 커진다: 4px(0개) → 8px(1~3개) → 12px(4~6개) → 16px(7~9개)...
-// collide 힘의 반지름은 시각 반지름보다 살짝 작게 잡아 REST_MIN(40)과의 충돌 여지를 줄인다.
 const DOT_R = 4;
 const EDGES_PER_STEP = 3;
 function visualRadius(deg) {
   const tier = Math.ceil(deg / EDGES_PER_STEP);
   return DOT_R * (1 + tier);
-}
-function collideRadius(deg) {
-  return Math.max(3, visualRadius(deg) * 0.75);
 }
 
 // 노드 수가 많아지면 한눈에 다 보이도록 반지름을 비율적으로 줄인다.
@@ -40,9 +32,28 @@ function crowdScale(count) {
   return count <= CROWD_BASE_COUNT ? 1 : Math.sqrt(CROWD_BASE_COUNT / count);
 }
 
+// 클러스터(연결된 노트 묶음) 하나를 원형으로 배치할 때 쓰는 상수.
+const MIN_CLUSTER_RADIUS = 28; // 가장 안쪽 원의 최소 반지름
+const CLUSTER_PADDING = 24; // 클러스터끼리 팩킹할 때 서로 맞닿지 않도록 두는 여유
+
+// 연결 많은 순으로 정렬해 20/40/60/80/100 백분위 구간(최대 5단계)으로 나누고, 안쪽 원부터
+// 바깥 원으로 갈수록 연결이 적은 노드를 배치하는 "그라데이션" 동심원 구조.
+// 노드가 적은 클러스터는 단계 수를 그만큼 줄여, 빈 단계 없이 자연스럽게 이어지게 한다.
+const TIER_COUNT = 5;
+// 같은 원 위 인접 노드 사이의 최소 호 길이 — 원끼리 다닥다닥 붙지 않고 라벨(글자)까지
+// 서로 겹치지 않을 만큼 넉넉하게 잡는다.
+const LABEL_SPACING = 64;
+// 단계(tier)마다 시작 각도를 이만큼씩 어긋나게 돌려, 여러 단계의 노드가 한 방향으로
+// 일렬 정렬되거나 특정 개수(4개 등)일 때 상하좌우 "+"자로 보이는 것을 막는다.
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)); // ≈137.5°, 해바라기 씨 배열에 쓰이는 각도
+
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.2;
+
+// 선택한 노드의 1뎁스 연결 목록 — 기본 2줄 정도만 보이고 "더보기"로 펼치는 컨테이너 높이.
+// TaskBacklog.jsx의 접기 UI/UX(같은 임계값 검사·같은 버튼 문구)를 그대로 재사용한다.
+const NEIGHBOR_COLLAPSED_HEIGHT = 200;
 
 function normalize(s) {
   return (s || '').trim().toLowerCase();
@@ -78,97 +89,159 @@ function truncate(label) {
   return label.length > LABEL_MAX ? `${label.slice(0, LABEL_MAX)}…` : label;
 }
 
-// 커스텀 d3 force: REST_MIN~STRETCH_LIMIT 구간에서는 아무 힘도 주지 않고,
-// 그 범위를 벗어난 연결(link)만 REST_MIN 또는 REST_MAX 쪽으로 서서히 끌어온다.
-// 드래그로 고정된(fx/fy) 노드는 다른 쪽이 전량 흡수하도록 d3의 fx/fy 관례를 그대로 활용한다
-// (fx/fy가 설정된 노드는 매 tick 끝에 시뮬레이션이 좌표를 강제로 덮어쓰므로, 여기서 속도를
-// 더해도 무해하다 — 굳이 분기 처리하지 않아도 됨).
-const SLACK_SPRING_STRENGTH = 0.3;
-
-function slackLinkForce() {
-  let links = [];
-  let nodeById = new Map();
-
-  // 위치를 직접 스냅하고 속도를 0으로 지우면, 경계를 넘는 순간 갑자기 멈췄다가
-  // 다음 tick에 다시 움직여 "틱틱" 끊겨 보인다. 다른 d3 force들처럼 alpha로 감쇠되는
-  // 속도 기반 스프링으로 바꿔 기존 움직임(velocity)을 보존한 채 자연스럽게 수렴시킨다.
-  function force(alpha) {
-    for (const link of links) {
-      const a = nodeById.get(link.source);
-      const b = nodeById.get(link.target);
-      if (!a || !b) continue;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
-      const target = dist > STRETCH_LIMIT ? REST_MAX : dist < REST_MIN ? REST_MIN : null;
-      if (target === null) continue;
-
-      const corr = (dist - target) * SLACK_SPRING_STRENGTH * alpha;
-      const ux = dx / dist;
-      const uy = dy / dist;
-      const aFixed = a.fx != null; // 드래그로 고정된 노드는 건드리지 않는다
-      const bFixed = b.fx != null;
-      const ratioA = aFixed ? 0 : bFixed ? 1 : 0.5;
-      const ratioB = 1 - ratioA;
-
-      if (!aFixed) {
-        a.vx += ux * corr * ratioA;
-        a.vy += uy * corr * ratioA;
-      }
-      if (!bFixed) {
-        b.vx -= ux * corr * ratioB;
-        b.vy -= uy * corr * ratioB;
+// 링크로 연결된 노트들을 묶어 연결요소(connected component) 목록을 구한다.
+// 연결이 하나도 없는 노트는 자기 자신만 담긴 크기 1짜리 클러스터가 된다.
+function findClusters(notes, links) {
+  const adj = new Map(notes.map((n) => [n.id, []]));
+  for (const { source, target } of links) {
+    adj.get(source)?.push(target);
+    adj.get(target)?.push(source);
+  }
+  const visited = new Set();
+  const clusters = [];
+  for (const note of notes) {
+    if (visited.has(note.id)) continue;
+    const stack = [note.id];
+    const group = [];
+    visited.add(note.id);
+    while (stack.length) {
+      const id = stack.pop();
+      group.push(id);
+      for (const nb of adj.get(id) ?? []) {
+        if (!visited.has(nb)) {
+          visited.add(nb);
+          stack.push(nb);
+        }
       }
     }
+    clusters.push(group);
   }
-
-  force.initialize = (nodes) => {
-    nodeById = new Map(nodes.map((n) => [n.id, n]));
-  };
-  force.links = (_links) => {
-    if (_links === undefined) return links;
-    links = _links;
-    return force;
-  };
-  return force;
+  return clusters;
 }
 
-// 커스텀 d3 force: 일반 반발력(다른 클러스터끼리 겹치지 않게)이지만, 연결(link)된 쌍은
-// 제외한다 — d3의 기본 forceManyBody는 모든 쌍에 적용되어 slackLinkForce의 정확한
-// REST_MIN/REST_MAX 수렴을 방해하므로, 연결 안 된 쌍에만 반발력을 적용하는 버전을 직접 구현.
-function pairRepulseForce(strength) {
-  let nodes = [];
-  let linkKeySet = new Set();
+// 클러스터별로 노드를 원 위에 균등한 각도로 배치하고, 클러스터들은 서로 겹치지 않게
+// packSiblings로 팩킹한 뒤 캔버스 중앙으로 옮긴다 — 물리 시뮬레이션 없는 결정론적 레이아웃.
+function computeLayout(notes, links, degree, scale) {
+  const clusters = findClusters(notes, links);
 
-  // d3의 기본 힘(forceManyBody 등)과 마찬가지로 alpha를 강도에 곱해야 한다 — alpha를
-  // 무시하면 시뮬레이션이 식어도(alpha→0) 반발력이 줄지 않아 slackLinkForce의 순간 스냅과
-  // 끝없이 밀고 당기며 진동한다(노드가 절대 정지하지 못함).
-  function force(alpha) {
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i];
-        const b = nodes[j];
-        if (linkKeySet.has(`${a.id}-${b.id}`) || linkKeySet.has(`${b.id}-${a.id}`)) continue;
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const distSq = Math.max(dx * dx + dy * dy, 4);
-        const f = (strength * alpha) / distSq;
-        const dist = Math.sqrt(distSq);
-        const fx = (dx / dist) * f;
-        const fy = (dy / dist) * f;
-        if (a.fx == null) { a.vx += fx; a.vy += fy; }
-        if (b.fx == null) { b.vx -= fx; b.vy -= fy; }
+  const radiusOf = (id) => visualRadius(degree[id] ?? 0) * scale;
+
+  const packInput = clusters.map((noteIds) => {
+    const localPositions = new Map();
+
+    if (noteIds.length === 1) {
+      localPositions.set(noteIds[0], { x: 0, y: 0 });
+      return { noteIds, localPositions, r: radiusOf(noteIds[0]) + CLUSTER_PADDING };
+    }
+
+    // 연결 많은 순으로 정렬해 누적 백분위(20/40/60/80/100%) 기준 최대 5단계로 나눈다.
+    // 노드가 적으면 단계 수도 그만큼 줄여(예: 2개면 2단계) 빈 단계가 생기지 않게 한다.
+    const sorted = [...noteIds].sort((a, b) => (degree[b] ?? 0) - (degree[a] ?? 0));
+    const n = sorted.length;
+    const tierCount = Math.min(TIER_COUNT, n);
+    const tiers = Array.from({ length: tierCount }, () => []);
+    sorted.forEach((id, i) => {
+      const percentile = (i + 1) / n;
+      const tierIndex = Math.min(tierCount - 1, Math.floor(percentile * tierCount));
+      tiers[tierIndex].push(id);
+    });
+
+    let prevOuterEdge = 0; // 이전 단계까지 실제로 차지한 바깥쪽 경계(반지름 + 그 단계 최대 노드 크기)
+    tiers.forEach((tierIds, tierIndex) => {
+      const maxTierR = Math.max(...tierIds.map(radiusOf));
+
+      // 안쪽 원 하나에 노드가 1개뿐이면 굳이 살짝 비켜 두지 않고 정중앙(0,0)에 둔다.
+      if (tierIndex === 0 && tierIds.length === 1) {
+        localPositions.set(tierIds[0], { x: 0, y: 0 });
+        prevOuterEdge = maxTierR;
+        return;
       }
+
+      const arcRadius = (tierIds.length * LABEL_SPACING) / (2 * Math.PI);
+      const minRadius = tierIndex === 0 ? MIN_CLUSTER_RADIUS : prevOuterEdge + maxTierR + LABEL_SPACING / 2;
+      const ringRadius = Math.max(minRadius, arcRadius);
+
+      // 모든 단계가 12시 방향에서 똑같이 시작하면, 노드 4개짜리 단계는 정확히 상하좌우에
+      // 놓여 "+" 모양이 되고 여러 단계의 첫 노드들도 한 방향으로 일렬 정렬돼 버린다.
+      // 단계마다 황금각(약 137.5°)만큼 시작 각도를 어긋나게 돌려 이런 정렬을 깨고
+      // 훨씬 원형/유기적으로 보이게 한다(회전만 할 뿐 균등 간격 자체는 그대로 유지).
+      const angleOffset = tierIndex * GOLDEN_ANGLE;
+      tierIds.forEach((id, i) => {
+        const angle = (i / tierIds.length) * Math.PI * 2 - Math.PI / 2 + angleOffset;
+        localPositions.set(id, { x: Math.cos(angle) * ringRadius, y: Math.sin(angle) * ringRadius });
+      });
+      prevOuterEdge = ringRadius + maxTierR;
+    });
+
+    return { noteIds, localPositions, r: prevOuterEdge + CLUSTER_PADDING };
+  });
+
+  packSiblings(packInput);
+  const enclose = packEnclose(packInput);
+  const offsetX = CANVAS_W / 2 - enclose.x;
+  const offsetY = CANVAS_H / 2 - enclose.y;
+
+  const positions = new Map();
+  for (const cluster of packInput) {
+    for (const [id, local] of cluster.localPositions) {
+      positions.set(id, { x: cluster.x + local.x + offsetX, y: cluster.y + local.y + offsetY });
     }
   }
+  return positions;
+}
 
-  force.initialize = (_nodes) => { nodes = _nodes; };
-  force.links = (_links) => {
-    if (_links === undefined) return [...linkKeySet];
-    linkKeySet = new Set(_links.map((l) => `${l.source}-${l.target}`));
-    return force;
-  };
-  return force;
+// 본문이 짧으면(줄바꿈 없고 대략 한 줄 길이) 접기/펼치기 버튼 자체를 표시하지 않는다.
+// DailyNoteList.jsx의 NoteCard와 동일한 규칙 — 뷰 간 공용 모듈 추출 없이 로컬로 복제하는
+// 기존 프로젝트 관례를 따른다.
+function isLongContent(content) {
+  return !!content && (content.length > 60 || content.includes('\n'));
+}
+
+// 선택한 노드와 1뎁스로 연결된 노트를 "목록 뷰"와 동일한 카드 스타일로 보여준다
+// (DailyNoteList.jsx의 NoteCard를 그대로 복제).
+function ConnectedNoteCard({ note, onEdit, onDelete }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = isLongContent(note.content);
+
+  return (
+    <div className="p-4 border rounded bg-white">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2 min-w-0">
+          {long ? (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="flex-shrink-0 mt-0.5 text-gray-400 hover:text-gray-600"
+              aria-label={expanded ? '접기' : '펼치기'}
+            >
+              {expanded ? '▾' : '▸'}
+            </button>
+          ) : (
+            <span className="flex-shrink-0 w-[1em]" />
+          )}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600">{note.date}</span>
+            {noteKeywords(note).map((tag) => (
+              <span key={tag} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">#{tag}</span>
+            ))}
+            {note.category && (
+              <span className="px-2 py-0.5 rounded bg-green-50 text-green-600">{note.category}</span>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={() => onEdit(note)} className="text-xs text-gray-500 hover:text-blue-600">수정</button>
+          <button onClick={() => onDelete(note.id)} className="text-xs text-gray-500 hover:text-red-500">삭제</button>
+        </div>
+      </div>
+      <h4 className="mt-2 font-semibold text-gray-800">{noteLabel(note)}</h4>
+      {note.content && (
+        <div
+          className={'mt-2 text-sm text-gray-700 markdown-body' + (expanded ? '' : ' line-clamp-1')}
+          dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(note.content) }}
+        />
+      )}
+    </div>
+  );
 }
 
 export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
@@ -182,57 +255,28 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
     });
     return d;
   }, [notes, links]);
+  const scale = crowdScale(notes.length);
+  const layout = useMemo(() => computeLayout(notes, links, degree, scale), [notes, links, degree, scale]);
 
-  const simRef = useRef(null);
   const nodesByIdRef = useRef(new Map());
-  const degreeRef = useRef({});
-  const crowdScaleRef = useRef(1);
-  const dragRef = useRef(null); // { id, moved }
+  const dragRef = useRef(null); // { id, moved, offsetX, offsetY }
   const svgRef = useRef(null);
   const [, setTick] = useState(0);
   const [selectedId, setSelectedId] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [hoveredId, setHoveredId] = useState(null);
 
-  degreeRef.current = degree; // forceCollide의 radius 접근자가 항상 최신 degree를 읽도록
-  crowdScaleRef.current = crowdScale(notes.length);
-
-  // 시뮬레이션 생성/노트 변경 시 노드·링크 동기화 (기존 위치는 최대한 보존)
+  // notes/links가 바뀔 때마다(추가/수정/삭제) 레이아웃을 새로 계산해 덮어쓴다 — 드래그로
+  // 옮겼던 위치는 유지하지 않고 항상 자동 배치로 되돌아간다("균형 잡힌 구조"를 계속 보장).
   useEffect(() => {
-    const prevById = nodesByIdRef.current;
-    const simNodes = notes.map((note, i) => {
-      const prev = prevById.get(note.id);
-      if (prev) return prev;
-      const angle = (i / Math.max(notes.length, 1)) * Math.PI * 2;
-      const radius = 90 + (i % 3) * 40;
-      return {
-        id: note.id,
-        x: CANVAS_W / 2 + Math.cos(angle) * radius,
-        y: CANVAS_H / 2 + Math.sin(angle) * radius,
-      };
-    });
-    const nextById = new Map(simNodes.map((n) => [n.id, n]));
-    nodesByIdRef.current = nextById;
-
-    if (!simRef.current) {
-      simRef.current = forceSimulation(simNodes)
-        .force('repulse', pairRepulseForce(8000))
-        // 충돌 반경은 NODE_R(시각적 원 크기)보다 작게 잡는다 — REST_MIN(40)이 원 지름(44)보다
-        // 작아, forceCollide의 기본 최소거리가 REST_MIN보다 크면 slackLink의 정확한 40px
-        // 수렴과 계속 충돌한다. 최소한의 겹침 방지(완전 포개짐 방지)만 담당하도록 축소.
-        .force('collide', forceCollide().radius((d) => collideRadius(degreeRef.current[d.id] ?? 0) * crowdScaleRef.current))
-        .force('center', forceCenter(CANVAS_W / 2, CANVAS_H / 2).strength(0.03))
-        .force('slackLink', slackLinkForce())
-        .on('tick', () => setTick((t) => t + 1));
-    } else {
-      simRef.current.nodes(simNodes);
+    const next = new Map();
+    for (const note of notes) {
+      const p = layout.get(note.id) ?? { x: CANVAS_W / 2, y: CANVAS_H / 2 };
+      next.set(note.id, { id: note.id, x: p.x, y: p.y });
     }
-    simRef.current.force('slackLink').links(links);
-    simRef.current.force('repulse').links(links);
-    simRef.current.alpha(0.4).restart();
-  }, [notes, links]);
-
-  useEffect(() => () => simRef.current?.stop(), []);
+    nodesByIdRef.current = next;
+    setTick((t) => t + 1);
+  }, [layout]);
 
   // 확대(zoom) 중에는 svg viewBox가 CANVAS_W x CANVAS_H의 일부만 보여주므로,
   // 화면 좌표 → 캔버스 좌표 변환도 현재 뷰포트(viewX/Y/W/H) 기준으로 다시 계산해야 한다.
@@ -249,38 +293,14 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
     };
   }, [viewX, viewY, viewW, viewH]);
 
-  // 드래그 중에는 전체 시뮬레이션(alphaTarget)을 다시 데우지 않는다 — repulse는 링크로
-  // 연결되지 않은 모든 쌍에 작용하므로, 전체를 재가열하면 드래그와 무관한 노드까지
-  // 밀려나 움직인다. 대신 드래그되는 노드에 직접 연결된 이웃에만, 늘어나거나 눌린
-  // 만큼(REST_MIN/REST_MAX)만 국소적으로 위치를 보정한다.
-  const pullDirectNeighbors = (draggedId) => {
-    const dragged = nodesByIdRef.current.get(draggedId);
-    if (!dragged) return;
-    for (const link of links) {
-      const neighborId = link.source === draggedId ? link.target : link.target === draggedId ? link.source : null;
-      if (!neighborId) continue;
-      const neighbor = nodesByIdRef.current.get(neighborId);
-      if (!neighbor || neighbor.fx != null) continue; // 다른 드래그로 고정된 노드는 건드리지 않음
-      const dx = neighbor.x - dragged.x;
-      const dy = neighbor.y - dragged.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
-      const target = dist > STRETCH_LIMIT ? REST_MAX : dist < REST_MIN ? REST_MIN : null;
-      if (target === null) continue;
-      const ux = dx / dist;
-      const uy = dy / dist;
-      neighbor.x = dragged.x + ux * target;
-      neighbor.y = dragged.y + uy * target;
-    }
-  };
-
+  // 드래그는 순수하게 그 노드만 옮긴다 — 연결된 다른 노드에는 전혀 영향을 주지 않는다.
+  // 다음에 notes/links가 바뀌면 위 useEffect가 다시 자동 배치로 되돌린다.
   const handlePointerDown = (noteId) => (e) => {
     e.stopPropagation();
     const node = nodesByIdRef.current.get(noteId);
     if (!node) return;
     const p = toCanvasPoint(e);
     dragRef.current = { id: noteId, moved: 0, offsetX: p.x - node.x, offsetY: p.y - node.y };
-    node.fx = node.x;
-    node.fy = node.y;
     setHoveredId(null); // 드래그 중에는 툴팁이 손가락/커서를 따라다니며 거슬리지 않도록 숨김
   };
 
@@ -292,34 +312,49 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
     const p = toCanvasPoint(e);
     const nx = Math.min(CANVAS_W - NODE_R, Math.max(NODE_R, p.x - drag.offsetX));
     const ny = Math.min(CANVAS_H - NODE_R, Math.max(NODE_R, p.y - drag.offsetY));
-    drag.moved += Math.abs(nx - node.fx) + Math.abs(ny - node.fy);
-    node.fx = nx;
-    node.fy = ny;
+    drag.moved += Math.abs(nx - node.x) + Math.abs(ny - node.y);
     node.x = nx;
     node.y = ny;
-    pullDirectNeighbors(drag.id);
-    setTick((t) => t + 1); // 시뮬레이션이 멈춰 있어도(tick 이벤트 없음) 드래그 중 위치를 반영
+    setTick((t) => t + 1);
   };
 
   const endDrag = (noteId) => () => {
     const drag = dragRef.current;
     if (!drag) return;
     dragRef.current = null;
-    const node = nodesByIdRef.current.get(drag.id);
-    if (node) {
-      node.fx = null;
-      node.fy = null;
-    }
     if (drag.moved < DRAG_CLICK_THRESHOLD) setSelectedId(noteId);
   };
 
   const selectedNote = notes.find((n) => n.id === selectedId) ?? null;
 
+  // 선택한 노드와 1뎁스로 연결된 노트 목록 — 목록 뷰와 동일한 카드로 하단에 쭉 보여준다.
+  const neighborNotes = useMemo(() => {
+    if (!selectedId) return [];
+    const neighborIds = new Set();
+    for (const link of links) {
+      if (link.source === selectedId) neighborIds.add(link.target);
+      else if (link.target === selectedId) neighborIds.add(link.source);
+    }
+    return notes.filter((n) => neighborIds.has(n.id));
+  }, [selectedId, links, notes]);
+
+  const [neighborsExpanded, setNeighborsExpanded] = useState(false);
+  const [neighborsOverflowing, setNeighborsOverflowing] = useState(false);
+  const neighborListRef = useRef(null);
+
+  // 다른 노드를 선택하면 목록도 다시 접힌 상태로 시작한다.
+  useEffect(() => setNeighborsExpanded(false), [selectedId]);
+
+  // TaskBacklog.jsx와 동일한 방식 — 실제로 2줄보다 많이 잘릴 때만 더보기/접기 버튼을 보여준다.
+  useLayoutEffect(() => {
+    const el = neighborListRef.current;
+    if (!el) return;
+    setNeighborsOverflowing(el.scrollHeight > NEIGHBOR_COLLAPSED_HEIGHT + 1);
+  }, [neighborNotes]);
+
   if (notes.length === 0) {
     return <p className="text-sm text-gray-400 py-8 text-center">아직 작성된 아이디어가 없습니다.</p>;
   }
-
-  const scale = crowdScaleRef.current;
 
   // 호버된 노드의 키워드 툴팁 위치 — 노드 위쪽 중앙에 띄우되, 현재 확대 뷰포트를 벗어나지
   // 않도록 clamp한다.
@@ -381,7 +416,7 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
                 x1={a.x} y1={a.y} x2={b.x} y2={b.y}
                 stroke={touchesSelected ? '#93c5fd' : '#e2e8f0'}
                 strokeWidth={touchesSelected ? 2.5 : 1.5}
-                style={{ transition: isDraggingEndpoint ? 'none' : 'x1 150ms ease-out, y1 150ms ease-out, x2 150ms ease-out, y2 150ms ease-out' }}
+                style={{ transition: isDraggingEndpoint ? 'none' : 'x1 200ms ease-out, y1 200ms ease-out, x2 200ms ease-out, y2 200ms ease-out' }}
               />
             );
           })}
@@ -391,14 +426,14 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
             const isSelected = note.id === selectedId;
             const r = visualRadius(degree[note.id] ?? 0) * scale;
             // 드래그 중인 노드 자신은 커서와 1:1로 붙어야 하므로 transition을 걸지 않는다.
-            // 그 외 노드(특히 드래그로 늘어난 링크에 끌려오는 이웃)는 위치가 목표 거리로
-            // 즉시 스냅되면서 뚝뚝 끊겨 보였는데, transform에 transition을 걸어 매끄럽게 만든다.
+            // 그 외 노드는 레이아웃이 재계산될 때 위치가 즉시 바뀌면서 뚝뚝 끊겨 보이지 않도록
+            // transform에 transition을 걸어 매끄럽게 이동시킨다.
             const isDragging = dragRef.current?.id === note.id;
             return (
               <g
                 key={note.id}
                 transform={`translate(${node.x}, ${node.y})`}
-                style={{ transition: isDragging ? 'none' : 'transform 150ms ease-out' }}
+                style={{ transition: isDragging ? 'none' : 'transform 200ms ease-out' }}
                 onPointerDown={handlePointerDown(note.id)}
                 onPointerUp={endDrag(note.id)}
                 onMouseEnter={() => setHoveredId(note.id)}
@@ -468,6 +503,32 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
               className="mt-2 text-sm text-gray-700 markdown-body"
               dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(selectedNote.content) }}
             />
+          )}
+        </div>
+      )}
+
+      {selectedNote && neighborNotes.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h5 className="text-xs font-semibold text-gray-500">연결된 노트 ({neighborNotes.length})</h5>
+          <div
+            ref={neighborListRef}
+            className="flex flex-col gap-3"
+            style={{
+              maxHeight: neighborsExpanded ? 'none' : NEIGHBOR_COLLAPSED_HEIGHT,
+              overflow: neighborsExpanded ? 'visible' : 'hidden',
+            }}
+          >
+            {neighborNotes.map((note) => (
+              <ConnectedNoteCard key={note.id} note={note} onEdit={onEdit} onDelete={onDelete} />
+            ))}
+          </div>
+          {neighborsOverflowing && (
+            <button
+              onClick={() => setNeighborsExpanded((v) => !v)}
+              className="mt-1 text-xs text-gray-500 hover:text-blue-600"
+            >
+              {neighborsExpanded ? '접기 ▲' : `더보기 (총 ${neighborNotes.length}개) ▼`}
+            </button>
           )}
         </div>
       )}
