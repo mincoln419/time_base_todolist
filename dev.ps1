@@ -27,12 +27,12 @@ function Start-Dev {
 
     Write-Host 'Installing server dependencies...'
     Push-Location (Join-Path $Root 'server')
-    npm install --silent
+    npm install --silent --no-audit --no-fund
     Pop-Location
 
     Write-Host 'Installing client dependencies...'
     Push-Location (Join-Path $Root 'client')
-    npm install --silent
+    npm install --silent --no-audit --no-fund
     Pop-Location
 
     Write-Host 'Starting server (port 3001)...'
