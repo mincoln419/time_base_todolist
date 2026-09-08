@@ -13,7 +13,14 @@ const partItemsRef = firestore.collection(MEETING_PART_ITEMS);
 const actionItemsRef = firestore.collection(MEETING_ACTION_ITEMS);
 
 const VALID_OVERALL_KINDS = new Set(['share', 'request', 'project']);
+const VALID_PART_KINDS = new Set(['progress', 'request']);
 const VALID_ACTION_STATUSES = new Set(['대기', '진행중', '완료']);
+
+// 구 스키마(progress/request 분리 필드) 문서를 신 스키마(kind/content)로 변환해 하위호환 지원
+function normalizePartItem(item) {
+  if (item.kind != null) return item;
+  return { ...item, kind: 'progress', content: item.progress ?? '' };
+}
 
 function requireTitle(value, message) {
   const title = String(value ?? '').trim();
@@ -63,15 +70,26 @@ router.get('/', asyncHandler(async (req, res) => {
 
 router.post('/', asyncHandler(async (req, res) => {
   const date = requireTitle(req.body.date, '회의 날짜를 입력해주세요.');
+  const title = optionalText(req.body.title);
 
   const meeting = await firestore.runTransaction(async (tx) => {
     const id = await nextId(tx, COUNTER_KEYS.MEETINGS);
-    const doc = { id, date, created_at: nowString() };
+    const doc = { id, date, title, created_at: nowString() };
     tx.set(meetingsRef.doc(String(id)), doc);
     return doc;
   });
 
   res.status(201).json(meeting);
+}));
+
+router.patch('/:id', asyncHandler(async (req, res) => {
+  const ref = meetingsRef.doc(req.params.id);
+  const current = await notFound(ref, '회의록을 찾을 수 없습니다.');
+  const title = req.body.title == null ? current.title : optionalText(req.body.title);
+
+  const updated = { ...current, title };
+  await ref.set(updated);
+  res.json(updated);
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {
@@ -88,7 +106,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json({
     meeting,
     overall_items: overallSnap.docs.map((d) => d.data()).sort(byPosition),
-    part_items: partSnap.docs.map((d) => d.data()).sort(byPosition),
+    part_items: partSnap.docs.map((d) => normalizePartItem(d.data())).sort(byPosition),
     action_items: actionSnap.docs.map((d) => d.data()).sort(byPosition),
   });
 }));
@@ -159,14 +177,15 @@ router.delete('/overall-items/:id', asyncHandler(async (req, res) => {
 router.post('/:meetingId/part-items', asyncHandler(async (req, res) => {
   const meetingId = req.params.meetingId;
   await assertMeeting(meetingId);
+  const part = optionalText(req.body.part);
   const assignee = requireTitle(req.body.assignee, '담당자를 입력해주세요.');
-  const progress = optionalText(req.body.progress);
-  const request = optionalText(req.body.request);
+  const kind = VALID_PART_KINDS.has(req.body.kind) ? req.body.kind : 'progress';
+  const content = requireTitle(req.body.content, '내용을 입력해주세요.');
 
   const item = await firestore.runTransaction(async (tx) => {
     const position = await nextPosition(tx, partItemsRef, meetingId);
     const id = await nextId(tx, COUNTER_KEYS.MEETING_PART_ITEMS);
-    const doc = { id, meeting_id: Number(meetingId), assignee, progress, request, position, created_at: nowString() };
+    const doc = { id, meeting_id: Number(meetingId), part, assignee, kind, content, position, created_at: nowString() };
     tx.set(partItemsRef.doc(String(id)), doc);
     return doc;
   });
@@ -176,12 +195,15 @@ router.post('/:meetingId/part-items', asyncHandler(async (req, res) => {
 
 router.patch('/part-items/:id', asyncHandler(async (req, res) => {
   const ref = partItemsRef.doc(req.params.id);
-  const current = await notFound(ref, '항목을 찾을 수 없습니다.');
+  const current = normalizePartItem(await notFound(ref, '항목을 찾을 수 없습니다.'));
+  const part = req.body.part == null ? current.part : optionalText(req.body.part);
   const assignee = req.body.assignee == null ? current.assignee : requireTitle(req.body.assignee, '담당자를 입력해주세요.');
-  const progress = req.body.progress == null ? current.progress : optionalText(req.body.progress);
-  const request = req.body.request == null ? current.request : optionalText(req.body.request);
+  const kind = req.body.kind == null
+    ? current.kind
+    : (VALID_PART_KINDS.has(req.body.kind) ? req.body.kind : current.kind);
+  const content = req.body.content == null ? current.content : requireTitle(req.body.content, '내용을 입력해주세요.');
 
-  const updated = { ...current, assignee, progress, request };
+  const updated = { ...current, part, assignee, kind, content };
   await ref.set(updated);
   res.json(updated);
 }));

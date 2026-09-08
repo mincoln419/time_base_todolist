@@ -12,6 +12,7 @@ import {
   fetchMeetings,
   generateActionItems as generateActionItemsApi,
   updateActionItem,
+  updateMeeting as updateMeetingApi,
   updateOverallItem,
   updatePartItem,
 } from '../api/meetings';
@@ -66,6 +67,12 @@ export function useMeetings() {
     if (selectedId === id) backToList();
   }, [reloadListAfter, selectedId, backToList]);
 
+  const editMeetingTitle = useCallback(async (id, title) => {
+    await updateMeetingApi(id, { title });
+    await loadMeetings();
+    if (selectedId === id) await loadDetail(id);
+  }, [loadMeetings, loadDetail, selectedId]);
+
   const runGenerateActionItems = useCallback(async (meetingId, notes) => {
     setGenerating(true);
     setGenerateError(null);
@@ -91,6 +98,7 @@ export function useMeetings() {
     backToList,
     addMeeting: (payload) => reloadListAfter(() => createMeeting(payload)),
     removeMeeting,
+    editMeetingTitle,
     addOverallItem: (meetingId, payload) => reloadDetailAfter(() => createOverallItem(meetingId, payload)),
     updateOverallItem: (id, payload) => reloadDetailAfter(() => updateOverallItem(id, payload)),
     removeOverallItem: (id) => reloadDetailAfter(() => deleteOverallItem(id)),
