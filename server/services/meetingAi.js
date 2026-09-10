@@ -80,6 +80,8 @@ async function generateActionItems(notes) {
 
   if (!response.ok) {
     console.error(`[meetingAi] 응답 오류: ${response.status}`);
+    // 바디를 읽지 않으면 undici가 커넥션을 풀에 반환하지 못해 소켓이 계속 쌓인다
+    await response.text().catch(() => {});
     const err = new Error('AI 액션아이템 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
     err.status = 502;
     throw err;

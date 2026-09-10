@@ -5,10 +5,15 @@ import { useMeetings } from '../../hooks/useMeetings';
 // Design Ref: §2 Option A — LongGoals.jsx의 목록/상세 + editingXId/xEditForm 인라인 편집 패턴을 그대로 재사용
 
 const OVERALL_KIND_LABELS = { share: '공유', request: '요청', project: '진행프로젝트' };
+const PART_KIND_LABELS = { progress: '진행사항', request: '요청사항' };
 const ACTION_STATUSES = ['대기', '진행중', '완료'];
 
 function toDateString(d) {
   return d.toISOString().slice(0, 10);
+}
+
+function meetingLabel(meeting) {
+  return meeting.title || `${meeting.date} 회의록`;
 }
 
 function createEmptyOverallForm() {
@@ -16,7 +21,61 @@ function createEmptyOverallForm() {
 }
 
 function createEmptyPartForm() {
-  return { assignee: '', progress: '', request: '' };
+  return { part: '', assignee: '', kind: 'progress', content: '' };
+}
+
+function groupPartItemsByPart(items) {
+  const groups = [];
+  const indexByPart = new Map();
+  for (const item of items) {
+    const key = item.part || '미분류';
+    if (!indexByPart.has(key)) {
+      indexByPart.set(key, groups.length);
+      groups.push({ part: key, items: [] });
+    }
+    groups[indexByPart.get(key)].items.push(item);
+  }
+  return groups;
+}
+
+function buildMeetingMarkdown(detail) {
+  const lines = [`# ${meetingLabel(detail.meeting)}`, ''];
+
+  lines.push('## 전체', '');
+  if (detail.overall_items.length === 0) {
+    lines.push('- (내용 없음)');
+  } else {
+    for (const item of detail.overall_items) {
+      lines.push(`- [${OVERALL_KIND_LABELS[item.kind]}] ${item.content}`);
+    }
+  }
+  lines.push('');
+
+  lines.push('## 파트별', '');
+  if (detail.part_items.length === 0) {
+    lines.push('- (내용 없음)');
+  } else {
+    for (const group of groupPartItemsByPart(detail.part_items)) {
+      lines.push(`### ${group.part}`);
+      for (const item of group.items) {
+        lines.push(`- **${item.assignee}** [${PART_KIND_LABELS[item.kind] ?? item.kind}] ${item.content}`);
+      }
+      lines.push('');
+    }
+  }
+
+  lines.push('## 액션아이템', '');
+  if (detail.action_items.length === 0) {
+    lines.push('- (내용 없음)');
+  } else {
+    lines.push('| 업무구분 | 내용 | 상태 | 기한 | 담당자 |');
+    lines.push('|---|---|---|---|---|');
+    for (const item of detail.action_items) {
+      lines.push(`| ${item.task_type} | ${item.content} | ${item.status} | ${item.due_date ?? ''} | ${item.assignee ?? ''} |`);
+    }
+  }
+
+  return lines.join('\n').trimEnd() + '\n';
 }
 
 function createEmptyActionForm() {
@@ -35,6 +94,7 @@ export default function MeetingMinutes() {
     backToList,
     addMeeting,
     removeMeeting,
+    editMeetingTitle,
     addOverallItem,
     updateOverallItem,
     removeOverallItem,
@@ -49,6 +109,10 @@ export default function MeetingMinutes() {
 
   const [newDate, setNewDate] = useState(() => toDateString(new Date()));
   const [confirmState, setConfirmState] = useState(null);
+  const [mdPreviewOpen, setMdPreviewOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('idle'); // idle | copied | error
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
 
   const [overallForm, setOverallForm] = useState(createEmptyOverallForm);
   const [partForm, setPartForm] = useState(createEmptyPartForm);
@@ -102,7 +166,7 @@ export default function MeetingMinutes() {
 
   const submitPart = async (e) => {
     e.preventDefault();
-    if (!partForm.assignee.trim()) return;
+    if (!partForm.assignee.trim() || !partForm.content.trim()) return;
     try {
       await addPartItem(selectedId, partForm);
       setPartForm(createEmptyPartForm());
@@ -113,7 +177,7 @@ export default function MeetingMinutes() {
 
   const startEditPart = (item) => {
     setEditingPartId(item.id);
-    setPartEditForm({ assignee: item.assignee, progress: item.progress ?? '', request: item.request ?? '' });
+    setPartEditForm({ part: item.part ?? '', assignee: item.assignee, kind: item.kind, content: item.content });
   };
   const cancelEditPart = () => {
     setEditingPartId(null);
@@ -169,6 +233,35 @@ export default function MeetingMinutes() {
     if (ok) setNotesText('');
   };
 
+  const startEditTitle = () => {
+    setTitleDraft(meetingLabel(detail.meeting));
+    setEditingTitle(true);
+  };
+  const cancelEditTitle = () => setEditingTitle(false);
+  const saveTitleEdit = async () => {
+    try {
+      await editMeetingTitle(selectedId, titleDraft.trim() || null);
+      setEditingTitle(false);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const openMdPreview = () => {
+    setCopyStatus('idle');
+    setMdPreviewOpen(true);
+  };
+
+  const copyMarkdown = async () => {
+    const md = buildMeetingMarkdown(detail);
+    try {
+      await navigator.clipboard.writeText(md);
+      setCopyStatus('copied');
+    } catch {
+      setCopyStatus('error');
+    }
+  };
+
   const askDeleteMeeting = (meeting) => {
     setConfirmState({
       message: `${meeting.date} 회의록을 삭제할까요? 하위 항목도 함께 삭제됩니다.`,
@@ -198,10 +291,11 @@ export default function MeetingMinutes() {
             {meetings.map((m) => (
               <div key={m.id} className="flex items-center justify-between p-3 hover:bg-gray-50">
                 <button
-                  onClick={() => selectMeeting(m.id)}
-                  className="text-sm font-semibold text-gray-800 hover:text-blue-600"
+                  onClick={() => { setEditingTitle(false); selectMeeting(m.id); }}
+                  className="flex flex-col items-start text-left"
                 >
-                  {m.date}
+                  <span className="text-sm font-semibold text-gray-800 hover:text-blue-600">{meetingLabel(m)}</span>
+                  {m.title && <span className="text-xs text-gray-400">{m.date}</span>}
                 </button>
                 <button
                   onClick={() => askDeleteMeeting(m)}
@@ -218,10 +312,39 @@ export default function MeetingMinutes() {
       {selectedId && detail && (
         <div className="max-w-3xl mx-auto p-4 space-y-4">
           <div className="flex items-center gap-3">
-            <button onClick={backToList} className="px-3 py-1.5 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
+            <button onClick={() => { setEditingTitle(false); backToList(); }} className="px-3 py-1.5 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
               ◀ 목록으로
             </button>
-            <h1 className="text-lg font-semibold text-gray-800">{detail.meeting.date} 회의록</h1>
+            {editingTitle ? (
+              <div className="flex-1 flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  className="flex-1 px-3 py-1.5 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+                <button onClick={cancelEditTitle} className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
+                  취소
+                </button>
+                <button onClick={saveTitleEdit} className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600">
+                  저장
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center gap-2 min-w-0">
+                <h1 className="text-lg font-semibold text-gray-800 truncate">{meetingLabel(detail.meeting)}</h1>
+                {detail.meeting.title && <span className="text-xs text-gray-400 shrink-0">{detail.meeting.date}</span>}
+                <button onClick={startEditTitle} className="px-2 py-1 text-xs rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600 shrink-0">
+                  수정
+                </button>
+              </div>
+            )}
+            <button
+              onClick={openMdPreview}
+              className="px-3 py-1.5 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+            >
+              MD 미리보기/복사
+            </button>
           </div>
 
           {/* 전체 섹션 */}
@@ -306,84 +429,119 @@ export default function MeetingMinutes() {
           {/* 파트별 섹션 */}
           <section className="bg-white border rounded p-4">
             <h2 className="font-semibold text-gray-800 mb-3">파트별</h2>
-            <form onSubmit={submitPart} className="grid grid-cols-1 md:grid-cols-[110px_1fr_1fr_72px] gap-2 mb-3">
-              <input
-                value={partForm.assignee}
-                onChange={(e) => setPartForm((prev) => ({ ...prev, assignee: e.target.value }))}
-                placeholder="담당자"
-                className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+            <form onSubmit={submitPart} className="mb-3 p-3 border rounded bg-gray-50 space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <input
+                  value={partForm.part}
+                  onChange={(e) => setPartForm((prev) => ({ ...prev, part: e.target.value }))}
+                  placeholder="파트"
+                  className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+                <input
+                  value={partForm.assignee}
+                  onChange={(e) => setPartForm((prev) => ({ ...prev, assignee: e.target.value }))}
+                  placeholder="담당자"
+                  className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+                <select
+                  value={partForm.kind}
+                  onChange={(e) => setPartForm((prev) => ({ ...prev, kind: e.target.value }))}
+                  className="px-3 py-2 text-sm border rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                >
+                  {Object.entries(PART_KIND_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <textarea
+                value={partForm.content}
+                onChange={(e) => setPartForm((prev) => ({ ...prev, content: e.target.value }))}
+                placeholder="내용"
+                rows={2}
+                className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
-              <input
-                value={partForm.progress}
-                onChange={(e) => setPartForm((prev) => ({ ...prev, progress: e.target.value }))}
-                placeholder="진행사항"
-                className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-              <input
-                value={partForm.request}
-                onChange={(e) => setPartForm((prev) => ({ ...prev, request: e.target.value }))}
-                placeholder="요청사항"
-                className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-              <button type="submit" className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
-                추가
-              </button>
+              <div className="flex justify-end">
+                <button type="submit" className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">
+                  추가
+                </button>
+              </div>
             </form>
-            <div className="space-y-2">
-              {detail.part_items.map((item) => (
-                editingPartId === item.id ? (
-                  <div key={item.id} className="p-2 rounded border bg-blue-50 space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <input
-                        value={partEditForm.assignee}
-                        onChange={(e) => setPartEditForm((prev) => ({ ...prev, assignee: e.target.value }))}
-                        placeholder="담당자"
-                        className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                      <input
-                        value={partEditForm.progress}
-                        onChange={(e) => setPartEditForm((prev) => ({ ...prev, progress: e.target.value }))}
-                        placeholder="진행사항"
-                        className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                      <input
-                        value={partEditForm.request}
-                        onChange={(e) => setPartEditForm((prev) => ({ ...prev, request: e.target.value }))}
-                        placeholder="요청사항"
-                        className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <button onClick={cancelEditPart} className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
-                        취소
-                      </button>
-                      <button
-                        onClick={() => savePartEdit(item.id)}
-                        disabled={!partEditForm.assignee.trim()}
-                        className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        저장
-                      </button>
-                    </div>
+            <div className="space-y-4">
+              {groupPartItemsByPart(detail.part_items).map((group) => (
+                <div key={group.part}>
+                  <h3 className="text-xs font-semibold text-gray-500 mb-1">{group.part}</h3>
+                  <div className="space-y-2">
+                    {group.items.map((item) => (
+                      editingPartId === item.id ? (
+                        <div key={item.id} className="p-2 rounded border bg-blue-50 space-y-2">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <input
+                              value={partEditForm.part}
+                              onChange={(e) => setPartEditForm((prev) => ({ ...prev, part: e.target.value }))}
+                              placeholder="파트"
+                              className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                            <input
+                              value={partEditForm.assignee}
+                              onChange={(e) => setPartEditForm((prev) => ({ ...prev, assignee: e.target.value }))}
+                              placeholder="담당자"
+                              className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
+                            <select
+                              value={partEditForm.kind}
+                              onChange={(e) => setPartEditForm((prev) => ({ ...prev, kind: e.target.value }))}
+                              className="px-3 py-2 text-sm border rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            >
+                              {Object.entries(PART_KIND_LABELS).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <textarea
+                            value={partEditForm.content}
+                            onChange={(e) => setPartEditForm((prev) => ({ ...prev, content: e.target.value }))}
+                            placeholder="내용"
+                            rows={2}
+                            className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button onClick={cancelEditPart} className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
+                              취소
+                            </button>
+                            <button
+                              onClick={() => savePartEdit(item.id)}
+                              disabled={!partEditForm.assignee.trim() || !partEditForm.content.trim()}
+                              className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              저장
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={item.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50">
+                          <div className="min-w-0 flex-1 text-sm text-gray-800">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold">{item.assignee}</span>
+                              <span className="px-2 py-0.5 text-[11px] rounded bg-white border text-gray-500">
+                                {PART_KIND_LABELS[item.kind] ?? item.kind}
+                              </span>
+                            </div>
+                            <div className="text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{item.content}</div>
+                          </div>
+                          <button onClick={() => startEditPart(item)} className="px-2 py-1 text-xs rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600">
+                            수정
+                          </button>
+                          <button
+                            onClick={async () => { try { await removePartItem(item.id); } catch (err) { alert(err.message); } }}
+                            className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )
+                    ))}
                   </div>
-                ) : (
-                  <div key={item.id} className="flex items-start gap-2 p-2 rounded border bg-gray-50">
-                    <div className="min-w-0 flex-1 text-sm text-gray-800">
-                      <span className="font-semibold mr-2">{item.assignee}</span>
-                      {item.progress && <span className="text-gray-600">{item.progress}</span>}
-                      {item.request && <div className="text-xs text-gray-500 mt-0.5">요청: {item.request}</div>}
-                    </div>
-                    <button onClick={() => startEditPart(item)} className="px-2 py-1 text-xs rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600">
-                      수정
-                    </button>
-                    <button
-                      onClick={async () => { try { await removePartItem(item.id); } catch (err) { alert(err.message); } }}
-                      className="px-2 py-1 text-xs rounded text-red-500 hover:bg-red-50"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                )
+                </div>
               ))}
             </div>
           </section>
@@ -537,6 +695,40 @@ export default function MeetingMinutes() {
               ))}
             </div>
           </section>
+        </div>
+      )}
+
+      {mdPreviewOpen && detail && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setMdPreviewOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[80vh] flex flex-col rounded border bg-white shadow-xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold text-gray-800">Markdown 미리보기</h2>
+              <button onClick={() => setMdPreviewOpen(false)} className="px-2 py-1 text-xs rounded text-gray-500 hover:bg-gray-100">
+                닫기
+              </button>
+            </div>
+            <textarea
+              readOnly
+              value={buildMeetingMarkdown(detail)}
+              className="flex-1 min-h-[300px] w-full px-3 py-2 text-xs font-mono border rounded bg-gray-50 focus:outline-none resize-none"
+            />
+            <div className="flex items-center justify-end gap-2 mt-3">
+              {copyStatus === 'copied' && <span className="text-xs text-emerald-600">복사되었습니다.</span>}
+              {copyStatus === 'error' && <span className="text-xs text-red-500">복사에 실패했습니다.</span>}
+              <button
+                onClick={copyMarkdown}
+                className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                클립보드에 복사
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

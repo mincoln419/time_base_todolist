@@ -22,6 +22,9 @@ async function sendWorkStartNotification(title) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        // 바디를 읽지 않으면 undici가 커넥션을 풀에 반환하지 못해 소켓이 계속 쌓인다 —
+        // 1분마다 도는 스케쥴러라 실패가 반복되면 누적됨. 결과는 안 쓰지만 반드시 소비한다.
+        await response.text().catch(() => {});
         if (!response.ok) {
           console.error(`[notify] 웹훅 "${w.name}" 전송 실패: ${response.status}`);
           return { id: w.id, ok: false };

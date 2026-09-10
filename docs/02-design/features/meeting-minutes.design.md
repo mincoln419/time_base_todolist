@@ -140,6 +140,7 @@ Meeting
 {
   id: number,
   date: string,       // 'YYYY-MM-DD'
+  title: string | null,  // 선택 — 미입력 시 화면에서 `${date} 회의록`으로 표시(동일 날짜에 여러 회의록 허용하므로 구분용)
   created_at: string,
 }
 
@@ -157,9 +158,10 @@ MeetingPartItem
 {
   id: number,
   meeting_id: number,
+  part: string | null,  // 파트(예: BE/FE/SE) — 선택, View에서 파트별 그룹핑에 사용
   assignee: string,     // 담당자
-  progress: string | null,  // 진행사항
-  request: string | null,   // 요청사항
+  kind: 'progress' | 'request',  // 진행사항 / 요청사항 — 항목당 하나만 선택
+  content: string,      // 내용(긴 텍스트 허용)
   position: number,
   created_at: string,
 }
@@ -216,13 +218,14 @@ CREATE TABLE IF NOT EXISTS meeting_overall_items (
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
--- 회의록 "파트별" 섹션 — 담당자/진행사항/요청사항
+-- 회의록 "파트별" 섹션 — 파트/담당자/구분(진행사항|요청사항)/내용
 CREATE TABLE IF NOT EXISTS meeting_part_items (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  part       TEXT,
   assignee   TEXT    NOT NULL,
-  progress   TEXT,
-  request    TEXT,
+  kind       TEXT    NOT NULL DEFAULT 'progress' CHECK (kind IN ('progress', 'request')),
+  content    TEXT    NOT NULL,
   position   INTEGER NOT NULL DEFAULT 0,
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
@@ -255,6 +258,7 @@ CREATE TABLE IF NOT EXISTS meeting_action_items (
 |--------|------|-------------|------|
 | GET | `/api/meetings` | 회의록 목록(날짜 최신순, 섹션 미포함) | 없음 |
 | POST | `/api/meetings` | 회의록 생성 | 없음 |
+| PATCH | `/api/meetings/:id` | 회의록 제목 수정 | 없음 |
 | GET | `/api/meetings/:id` | 회의록 상세(3개 섹션 포함) | 없음 |
 | DELETE | `/api/meetings/:id` | 회의록 삭제 (섹션 항목 CASCADE) | 없음 |
 | POST | `/api/meetings/:id/overall-items` | "전체" 섹션 항목 추가 | 없음 |
@@ -275,8 +279,8 @@ CREATE TABLE IF NOT EXISTS meeting_action_items (
 **Response (200):**
 ```json
 [
-  { "id": 3, "date": "2026-09-01", "created_at": "2026-09-01 09:00:00" },
-  { "id": 2, "date": "2026-08-25", "created_at": "2026-08-25 09:10:00" }
+  { "id": 3, "date": "2026-09-01", "title": "스프린트 회고", "created_at": "2026-09-01 09:00:00" },
+  { "id": 2, "date": "2026-08-25", "title": null, "created_at": "2026-08-25 09:10:00" }
 ]
 ```
 
@@ -285,6 +289,12 @@ CREATE TABLE IF NOT EXISTS meeting_action_items (
 **Request:** `{ "date": "2026-09-01" }`
 **Response (201)**: 생성된 회의록 객체
 **Error**: `400` — 날짜 공백: `{ "error": "회의 날짜를 입력해주세요." }`
+
+#### `PATCH /api/meetings/:id`
+
+**Request:** `{ "title": "스프린트 회고" }` (부분 갱신, `title: null`로 초기화하면 기본 표시(`${date} 회의록`)로 되돌아감)
+**Response (200)**: 갱신된 회의록 객체
+**Error**: `404`
 
 #### `GET /api/meetings/:id`
 
@@ -296,7 +306,7 @@ CREATE TABLE IF NOT EXISTS meeting_action_items (
     { "id": 10, "meeting_id": 3, "kind": "share", "content": "3.0.1 Release 패키징 완료", "position": 0 }
   ],
   "part_items": [
-    { "id": 20, "meeting_id": 3, "assignee": "BE", "progress": "개발자 온보딩 작업 수행", "request": null, "position": 0 }
+    { "id": 20, "meeting_id": 3, "part": "BE", "assignee": "박찬준", "kind": "progress", "content": "개발자 온보딩 작업 수행", "position": 0 }
   ],
   "action_items": [
     { "id": 30, "meeting_id": 3, "task_type": "Release", "content": "3.0.1 Jackson 호환 Hotfix", "status": "진행중", "due_date": "진행 중", "assignee": "BE", "position": 0 }
@@ -328,9 +338,9 @@ CREATE TABLE IF NOT EXISTS meeting_action_items (
 
 #### `POST /api/meetings/:id/part-items`
 
-**Request:** `{ "assignee": "BE", "progress": "...", "request": "..." }`
-**Response (201)**: 생성된 항목 객체 (`assignee` 필수, `progress`/`request`는 선택)
-**Error**: `400` — 담당자 공백, `404`
+**Request:** `{ "part": "BE", "assignee": "박찬준", "kind": "progress", "content": "..." }`
+**Response (201)**: 생성된 항목 객체 (`assignee`/`content` 필수, `part`는 선택, `kind`는 선택(기본값 `progress`))
+**Error**: `400` — 담당자/내용 공백, `404`
 
 #### `PATCH` / `DELETE` `.../part-items/:id`
 
@@ -592,7 +602,7 @@ MEETING_AI_MODEL=qwen3.8-max
 #### 회의록 탭 — 상세 화면 (공통)
 
 - [ ] "◀ 목록으로" 버튼으로 목록 복귀
-- [ ] 선택된 회의록의 날짜를 헤더로 표시
+- [ ] 선택된 회의록의 제목(미입력 시 `${date} 회의록`)을 헤더로 표시, [수정] 클릭 시 인라인 입력으로 전환해 저장/취소(동일 날짜에 여러 회의록이 있을 수 있어 구분용 제목 입력 지원)
 
 #### 상세 — "전체" 섹션
 
@@ -602,9 +612,10 @@ MEETING_AI_MODEL=qwen3.8-max
 
 #### 상세 — "파트별" 섹션
 
-- [ ] 담당자(필수) + 진행사항 + 요청사항 input들 + "추가" 버튼
-- [ ] 항목 리스트: 담당자 강조 표시 + 진행사항/요청사항, [수정]/[삭제] 버튼
-- [ ] [수정] 클릭 시 인라인 편집 폼(3필드) + 저장/취소
+- [ ] 파트(선택) + 담당자(필수) input + 구분(진행사항/요청사항) select + 내용 textarea(긴 텍스트 허용) + "추가" 버튼
+- [ ] 항목 리스트: 파트별로 그룹핑해 표시(파트 미입력 항목은 "미분류" 그룹), 그룹 내 담당자 강조 표시 + 구분 배지 + 내용, [수정]/[삭제] 버튼
+- [ ] [수정] 클릭 시 인라인 편집 폼(파트/담당자/구분/내용) + 저장/취소
+- [ ] 구 스키마(`progress`/`request` 분리 필드)로 저장된 기존 항목은 서버에서 `kind: 'progress'`로 정규화해 표시(요청사항 필드는 더 이상 노출하지 않음)
 
 #### 상세 — "액션아이템" 섹션
 
@@ -839,3 +850,4 @@ client/src/
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 0.1 | 2026-09-01 | Initial draft (Option A 선택, 액션아이템 AI 자동생성 서버사이드 격리 설계 포함) | Mincoln Cho |
+| 1.3 | 2026-09-08 | `meeting_part_items`에 `part`(파트명) 필드 추가 및 View 파트별 그룹핑; 진행사항/요청사항을 `kind`+`content`(textarea)로 통합; 회의록 Markdown 미리보기/클립보드 복사 기능 추가; `meetings.title`(선택) 필드 및 인라인 제목 수정 추가 | Mincoln Cho |
