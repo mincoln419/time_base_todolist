@@ -15,6 +15,7 @@ import LongGoals from './components/LongGoals/LongGoals';
 import WarRoomBoard from './components/WarRoomBoard/WarRoomBoard';
 import DailyNote from './components/DailyNote/DailyNote';
 import MeetingMinutes from './components/MeetingMinutes/MeetingMinutes';
+import ReadingLog from './components/ReadingLog/ReadingLog';
 
 import { useTasks } from './hooks/useTasks';
 import { useSchedules } from './hooks/useSchedules';
@@ -30,6 +31,7 @@ const TABS = [
   { id: 'warroom', label: '업무 배치 보드' },
   { id: 'dailynote', label: '데일리노트' },
   { id: 'meetings', label: '회의록' },
+  { id: 'reading', label: '독서기록' },
 ];
 
 const SCHEDULE_VIEWS = [
@@ -284,6 +286,10 @@ export default function App() {
 
       {tab === 'meetings' && (
         <MeetingMinutes />
+      )}
+
+      {tab === 'reading' && (
+        <ReadingLog />
       )}
 
       <div className="flex-shrink-0 border-t bg-white px-4 py-2">

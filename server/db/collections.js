@@ -30,6 +30,8 @@ module.exports = {
   MEETING_OVERALL_ITEMS: 'meetingOverallItems', // top-level, meeting_id 필드
   MEETING_PART_ITEMS: 'meetingPartItems', // top-level, meeting_id 필드
   MEETING_ACTION_ITEMS: 'meetingActionItems', // top-level, meeting_id 필드
+  READING_BOOKS: 'readingBooks',
+  READING_LOGS: 'readingLogs', // top-level, book_id 필드, 문서 ID = `${book_id}_${date}`
   COUNTERS: '_counters',
 
   // _counters 문서 ID — 위 컬렉션 이름과 1:1로 대응(전부 top-level이 되어 이제 충돌 걱정 없음).
@@ -54,5 +56,6 @@ module.exports = {
     MEETING_OVERALL_ITEMS: 'meetingOverallItems',
     MEETING_PART_ITEMS: 'meetingPartItems',
     MEETING_ACTION_ITEMS: 'meetingActionItems',
+    READING_BOOKS: 'readingBooks',
   },
 };
