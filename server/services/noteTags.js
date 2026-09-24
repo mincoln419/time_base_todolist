@@ -23,9 +23,9 @@ async function extractNoteTags(content) {
   let response;
   try {
     response = await anthropic.messages.create({
-      model: 'claude-sonnet-5',
-      max_tokens: 2048,
-      output_config: { effort: 'low' },
+      // 태그 추출은 추론이 필요 없는 단순 분류라 저렴한 Haiku 사용
+      model: 'claude-haiku-4-5',
+      max_tokens: 1024,
       tools: [
         {
           name: 'extract_tags',
