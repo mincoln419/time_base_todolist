@@ -126,7 +126,19 @@ function BookPreview({ form, today }) {
   );
 }
 
-function ChecklistRow({ book, date, onCheck, onUncheck }) {
+function FinishButton({ book, date, onFinish }) {
+  return (
+    <button
+      onClick={() => onFinish(book, date)}
+      title={`${book.total_pages}p까지 읽음으로 기록하고 완독 처리`}
+      className="px-2 py-1 text-xs rounded border border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+    >
+      완독
+    </button>
+  );
+}
+
+function ChecklistRow({ book, date, onCheck, onUncheck, onFinish }) {
   const log = logOn(book, date);
   const before = pageBefore(book, date);
   const defaultPage = Math.min(before + book.daily_target, book.total_pages);
@@ -177,6 +189,7 @@ function ChecklistRow({ book, date, onCheck, onUncheck }) {
           {read < book.daily_target && (
             <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 text-amber-700">목표 미달</span>
           )}
+          {log.page_to < book.total_pages && <FinishButton book={book} date={date} onFinish={onFinish} />}
         </div>
       ) : (
         <div className="flex items-center gap-1">
@@ -193,6 +206,7 @@ function ChecklistRow({ book, date, onCheck, onUncheck }) {
           <button onClick={save} className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600">
             {log ? '저장' : '체크'}
           </button>
+          <FinishButton book={book} date={date} onFinish={onFinish} />
           {editing && (
             <button onClick={() => setEditing(false)} className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
               취소
@@ -300,6 +314,7 @@ export default function ReadingLog() {
   const today = useToday();
   const [selectedDate, setSelectedDate] = useState(today);
   const [bookForm, setBookForm] = useState(() => createEmptyBookForm(today));
+  const [finishTarget, setFinishTarget] = useState(null); // 완독 확인 모달 대상 { book, date }
 
   // 자정이 지나면 선택 날짜도 새 오늘로 넘어간다(지난 날짜를 보고 있던 경우는 유지)
   useEffect(() => {
@@ -384,7 +399,14 @@ export default function ReadingLog() {
                 </div>
               ) : (
                 checklist.map((book) => (
-                  <ChecklistRow key={book.id} book={book} date={selectedDate} onCheck={checkLog} onUncheck={uncheckLog} />
+                  <ChecklistRow
+                    key={book.id}
+                    book={book}
+                    date={selectedDate}
+                    onCheck={checkLog}
+                    onUncheck={uncheckLog}
+                    onFinish={(target, date) => setFinishTarget({ book: target, date })}
+                  />
                 ))
               )}
             </div>
@@ -430,6 +452,45 @@ export default function ReadingLog() {
           </aside>
         </div>
       </div>
+
+      {finishTarget && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setFinishTarget(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded border bg-white shadow-xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm text-gray-800 mb-1">'{finishTarget.book.title}'을(를) 완독 처리할까요?</p>
+            <p className="text-xs text-gray-500 mb-4">
+              {finishTarget.date} 기록을 마지막 페이지({finishTarget.book.total_pages}p)로 저장합니다.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setFinishTarget(null)}
+                className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                아니오
+              </button>
+              <button
+                onClick={async () => {
+                  const { book, date } = finishTarget;
+                  setFinishTarget(null);
+                  try {
+                    await checkLog(book.id, date, book.total_pages);
+                  } catch (err) {
+                    alert(err.message);
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600"
+              >
+                예
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
