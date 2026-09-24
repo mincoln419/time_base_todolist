@@ -8,7 +8,8 @@ const router = express.Router();
 const booksRef = firestore.collection(READING_BOOKS);
 const logsRef = firestore.collection(READING_LOGS);
 const notesRef = firestore.collection(DAILY_NOTES);
-const NOTE_SOURCE = 'reading'; // 독서기록에서 작성한 데일리노트 표시
+const NOTE_SOURCE = 'reading'; // 독서기록에서 작성한 데일리노트 표시(필드값)
+const NOTE_SOURCE_TAG = '오늘의독서'; // 데일리노트에서 태그로 찾을 수 있도록 넣는 출처 키워드
 const DEFAULT_DAILY_TARGET = 10;
 
 function badRequest(message) {
@@ -46,12 +47,23 @@ function computeFinishedAt(book, logs) {
   return book.start_page >= book.total_pages ? book.start_date : null;
 }
 
-function withLogs(book, logs, notes = []) {
-  return {
-    ...book,
-    logs: logs.map(({ date, page_to }) => ({ date, page_to })),
-    notes: notes.map(({ id, date, item, content, keyword, category }) => ({ id, date, item, content, keyword, category })),
-  };
+function withLogs(book, logs) {
+  return { ...book, logs: logs.map(({ date, page_to }) => ({ date, page_to })) };
+}
+
+// 그날 읽은 페이지 범위 — 체크 기록이 없으면 null
+function pageRangeOn(book, logs, date) {
+  const log = logs.find((l) => l.date === date);
+  if (!log) return null;
+  const prev = logs.filter((l) => l.date < date).pop();
+  return { from: (prev ? prev.page_to : book.start_page) + 1, to: log.page_to };
+}
+
+// 독서 메모 본문을 출처 메타정보(오늘의 독서 · 책 제목 · 페이지 범위 · 날짜)로 감싼다
+function wrapReadingNote(book, date, range, content) {
+  const pages = range ? `${range.from} ~ ${range.to}p` : '페이지 기록 전';
+  const header = `> **오늘의 독서** · 《${book.title}》 · ${pages} · ${date}`;
+  return content.trim() ? `${header}\n\n${content}` : header;
 }
 
 async function loadBookWithLogs(tx, id) {
@@ -90,31 +102,18 @@ function validateBookFields(body, current) {
 
 // GET /api/reading/books - 전체 책 + 기록 (데이터 양이 적어 전체 로드)
 router.get('/books', asyncHandler(async (req, res) => {
-  const [booksSnap, logsSnap, notesSnap] = await Promise.all([
-    booksRef.get(),
-    logsRef.get(),
-    notesRef.where('source', '==', NOTE_SOURCE).get(),
-  ]);
-  const groupByBook = (snap) => {
-    const map = new Map();
-    snap.forEach((d) => {
-      const row = d.data();
-      if (!map.has(row.book_id)) map.set(row.book_id, []);
-      map.get(row.book_id).push(row);
-    });
-    return map;
-  };
-  const logsByBook = groupByBook(logsSnap);
-  const notesByBook = groupByBook(notesSnap);
+  const [booksSnap, logsSnap] = await Promise.all([booksRef.get(), logsRef.get()]);
+  const logsByBook = new Map();
+  logsSnap.forEach((d) => {
+    const log = d.data();
+    if (!logsByBook.has(log.book_id)) logsByBook.set(log.book_id, []);
+    logsByBook.get(log.book_id).push(log);
+  });
 
   const books = booksSnap.docs
     .map((d) => d.data())
     .sort((a, b) => a.id - b.id)
-    .map((book) => withLogs(
-      book,
-      sortLogs(logsByBook.get(book.id) ?? []),
-      (notesByBook.get(book.id) ?? []).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id),
-    ));
+    .map((book) => withLogs(book, sortLogs(logsByBook.get(book.id) ?? [])));
 
   res.json({ books });
 }));
@@ -234,8 +233,9 @@ router.delete('/books/:id/logs/:date', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/reading/books/:id/notes - 독서 메모를 데일리노트로 저장 (별도 컬렉션 없음)
-// 태그는 저장 시점에 AI로 추출하고, 책 제목을 키워드로 함께 넣어 같은 책 메모끼리 연결되게 한다.
-// AI 추출이 실패해도 메모는 책 제목 키워드로 저장하고 tag_error로 알린다(작성한 내용 유실 방지).
+// 본문은 출처 메타정보(책 제목·그날 읽은 페이지 범위)로 감싸고, source/book_id/page 필드로도 추적한다.
+// 태그는 저장 시점에 AI로 추출하고, 출처 태그와 책 제목을 키워드에 함께 넣어 데일리노트에서 찾을 수 있게 한다.
+// AI 추출이 실패해도 메모는 출처·책 제목 키워드로 저장하고 tag_error로 알린다(작성한 내용 유실 방지).
 router.post('/books/:id/notes', asyncHandler(async (req, res) => {
   const title = String(req.body?.title ?? '').trim();
   const content = String(req.body?.content ?? '');
@@ -244,9 +244,13 @@ router.post('/books/:id/notes', asyncHandler(async (req, res) => {
   if (!isDateString(date)) throw badRequest('올바른 날짜가 아닙니다.');
   if (exceedsTextFieldLimit(content)) throw badRequest('내용이 너무 깁니다.');
 
-  const bookSnap = await booksRef.doc(req.params.id).get();
+  const [bookSnap, logsSnap] = await Promise.all([
+    booksRef.doc(req.params.id).get(),
+    logsRef.where('book_id', '==', Number(req.params.id)).get(),
+  ]);
   if (!bookSnap.exists) throw new NotFoundError();
   const book = bookSnap.data();
+  const range = pageRangeOn(book, sortLogs(logsSnap.docs.map((d) => d.data())), date);
 
   let tags = { category: '', keywords: [] };
   let tagError = null;
@@ -255,14 +259,16 @@ router.post('/books/:id/notes', asyncHandler(async (req, res) => {
   } catch (e) {
     tagError = e.message;
   }
-  const keyword = [...new Set([book.title, ...tags.keywords])].join(', ');
+  const keyword = [...new Set([NOTE_SOURCE_TAG, book.title, ...tags.keywords])].join(', ');
 
   const note = await firestore.runTransaction(async (tx) => {
     const id = await nextId(tx, COUNTER_KEYS.DAILY_NOTES);
     const now = nowString();
     const doc = {
-      id, date, month: date.slice(0, 7), keyword, category: tags.category || null, item: title, content,
-      source: NOTE_SOURCE, book_id: book.id, created_at: now, updated_at: now,
+      id, date, month: date.slice(0, 7), keyword, category: tags.category || null, item: title,
+      content: wrapReadingNote(book, date, range, content),
+      source: NOTE_SOURCE, book_id: book.id, page_from: range?.from ?? null, page_to: range?.to ?? null,
+      created_at: now, updated_at: now,
     };
     tx.set(notesRef.doc(String(id)), doc);
     return doc;

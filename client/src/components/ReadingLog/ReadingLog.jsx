@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useReading } from '../../hooks/useReading';
 import ReadingHeatmap from './ReadingHeatmap';
-import { noteKeywords, renderNoteMarkdown } from '../DailyNote/noteUtils';
+import { renderNoteMarkdown } from '../DailyNote/noteUtils';
 import {
   DAILY_TARGET,
   addDays,
@@ -177,7 +177,6 @@ function ChecklistRow({ book, date, onCheck, onUncheck, onFinish, onMemo }) {
   };
 
   const read = log ? log.page_to - before : 0;
-  const notes = book.notes.filter((note) => note.date === date);
 
   return (
     <div className={'p-2 rounded border ' + (log ? 'bg-emerald-50' : 'bg-gray-50')}>
@@ -226,41 +225,20 @@ function ChecklistRow({ book, date, onCheck, onUncheck, onFinish, onMemo }) {
         )}
         <button
           onClick={() => onMemo(book, date)}
-          title="이 날짜의 독서 메모를 데일리노트로 기록"
+          title="이 날짜의 독서 메모를 데일리노트로 기록 (책 제목·읽은 페이지가 함께 저장됨)"
           className="px-2 py-1 text-xs rounded border text-gray-600 hover:bg-white"
         >
           메모
         </button>
       </div>
-      {notes.length > 0 && (
-        <div className="mt-2 ml-6 space-y-2">
-          {notes.map((note) => (
-            <div key={note.id} className="p-2 rounded bg-white border">
-              <div className="text-sm font-semibold text-gray-800">{note.item}</div>
-              {note.content && (
-                <div
-                  className="mt-1 text-sm text-gray-700 markdown-body"
-                  dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(note.content) }}
-                />
-              )}
-              <div className="mt-1 flex flex-wrap gap-1">
-                {note.category && (
-                  <span className="px-1.5 py-0.5 text-[11px] rounded bg-purple-50 text-purple-600">{note.category}</span>
-                )}
-                {noteKeywords(note).map((tag) => (
-                  <span key={tag} className="px-1.5 py-0.5 text-[11px] rounded bg-gray-100 text-gray-500">#{tag}</span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
 // 오늘의 독서 → 데일리노트 입력 모달. 제목·내용만 받고, 태그는 저장 시점에 서버가 AI로 추출한다.
 function NoteModal({ target, onClose, onSave }) {
+  const log = logOn(target.book, target.date);
+  const pages = log ? `${pageBefore(target.book, target.date) + 1} ~ ${log.page_to}p` : null;
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [preview, setPreview] = useState(false);
@@ -283,7 +261,13 @@ function NoteModal({ target, onClose, onSave }) {
       <div className="w-full max-w-2xl rounded border bg-white shadow-xl p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
         <div>
           <h3 className="font-semibold text-gray-800">독서 메모</h3>
-          <p className="text-xs text-gray-400">{target.book.title} · {target.date} · 데일리노트에 저장되며 태그는 AI가 자동 추출합니다</p>
+          <p className="text-xs text-gray-500">
+            오늘의 독서 · 《{target.book.title}》 · {pages ?? '페이지 기록 전'} · {target.date}
+          </p>
+          <p className="text-[11px] text-gray-400">
+            위 정보가 본문 머리에 붙어 데일리노트에 저장되고, 태그(#오늘의독서, #책 제목, AI 추출)로 찾을 수 있습니다.
+            {!pages && ' 먼저 체크하면 읽은 페이지 범위가 함께 기록됩니다.'}
+          </p>
         </div>
         <input
           value={title}
