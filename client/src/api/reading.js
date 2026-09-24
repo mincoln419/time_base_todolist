@@ -46,3 +46,8 @@ export async function deleteLog(bookId, date) {
   const res = await fetch(`${BASE}/books/${bookId}/logs/${date}`, { method: 'DELETE' });
   return readJsonOrThrow(res, '독서 기록 삭제 실패');
 }
+
+export async function createReadingNote(bookId, payload) {
+  const res = await fetch(`${BASE}/books/${bookId}/notes`, jsonRequest('POST', payload));
+  return readJsonOrThrow(res, '독서 메모 저장 실패');
+}

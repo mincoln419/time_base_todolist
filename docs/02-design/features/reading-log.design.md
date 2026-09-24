@@ -143,6 +143,7 @@ Base: `/api/reading` (`server/index.js`에 등록)
 | DELETE | `/books/:id` | 책 + 해당 logs 삭제 (204) |
 | PUT | `/books/:id/logs/:date` | 그날 도달 페이지 upsert (체크) |
 | DELETE | `/books/:id/logs/:date` | 그날 기록 삭제 (체크 해제, 204) |
+| POST | `/books/:id/notes` | 독서 메모 → 데일리노트 생성 `{ date, title, content }` → `{ note, tag_error }` (AI 태그 추출은 `services/noteTags.js`, 데일리노트 태그추출 버튼과 공유). GET `/books` 응답의 각 책에 `notes`(source='reading' 데일리노트) 포함 |
 
 ### 4.2 Detailed Specification
 

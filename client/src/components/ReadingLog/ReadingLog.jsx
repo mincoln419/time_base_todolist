@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useReading } from '../../hooks/useReading';
 import ReadingHeatmap from './ReadingHeatmap';
+import { noteKeywords, renderNoteMarkdown } from '../DailyNote/noteUtils';
 import {
   DAILY_TARGET,
   addDays,
@@ -145,7 +146,7 @@ function FinishButton({ book, date, onFinish }) {
   );
 }
 
-function ChecklistRow({ book, date, onCheck, onUncheck, onFinish }) {
+function ChecklistRow({ book, date, onCheck, onUncheck, onFinish, onMemo }) {
   const log = logOn(book, date);
   const before = pageBefore(book, date);
   const defaultPage = Math.min(before + book.daily_target, book.total_pages);
@@ -176,51 +177,166 @@ function ChecklistRow({ book, date, onCheck, onUncheck, onFinish }) {
   };
 
   const read = log ? log.page_to - before : 0;
+  const notes = book.notes.filter((note) => note.date === date);
 
   return (
-    <div className={'flex items-center gap-2 p-2 rounded border ' + (log ? 'bg-emerald-50' : 'bg-gray-50')}>
-      <input type="checkbox" checked={!!log} onChange={toggle} className="h-4 w-4" />
-      <div className="min-w-0 flex-1">
-        <div className={'text-sm break-words ' + (log ? 'text-gray-500' : 'text-gray-800')}>{book.title}</div>
-        <div className="text-xs text-gray-400">{currentPage(book)} / {book.total_pages}p</div>
-      </div>
-      {log && !editing ? (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setEditing(true)}
-            title="도달 페이지 수정"
-            className="text-sm text-gray-700 hover:text-blue-600"
-          >
-            {before} → {log.page_to}p <span className="text-emerald-600">(+{read})</span>
-          </button>
-          {read < book.daily_target && (
-            <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 text-amber-700">목표 미달</span>
-          )}
-          {log.page_to < book.total_pages && <FinishButton book={book} date={date} onFinish={onFinish} />}
+    <div className={'p-2 rounded border ' + (log ? 'bg-emerald-50' : 'bg-gray-50')}>
+      <div className="flex items-center gap-2">
+        <input type="checkbox" checked={!!log} onChange={toggle} className="h-4 w-4" />
+        <div className="min-w-0 flex-1">
+          <div className={'text-sm break-words ' + (log ? 'text-gray-500' : 'text-gray-800')}>{book.title}</div>
+          <div className="text-xs text-gray-400">{currentPage(book)} / {book.total_pages}p</div>
         </div>
-      ) : (
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-400">{before} →</span>
-          <input
-            type="number"
-            min={before + 1}
-            max={book.total_pages}
-            value={page}
-            onChange={(e) => setPage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && save()}
-            className={PAGE_INPUT}
-          />
-          <button onClick={save} className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600">
-            {log ? '저장' : '체크'}
-          </button>
-          <FinishButton book={book} date={date} onFinish={onFinish} />
-          {editing && (
-            <button onClick={() => setEditing(false)} className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
-              취소
+        {log && !editing ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setEditing(true)}
+              title="도달 페이지 수정"
+              className="text-sm text-gray-700 hover:text-blue-600"
+            >
+              {before} → {log.page_to}p <span className="text-emerald-600">(+{read})</span>
             </button>
-          )}
+            {read < book.daily_target && (
+              <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 text-amber-700">목표 미달</span>
+            )}
+            {log.page_to < book.total_pages && <FinishButton book={book} date={date} onFinish={onFinish} />}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-gray-400">{before} →</span>
+            <input
+              type="number"
+              min={before + 1}
+              max={book.total_pages}
+              value={page}
+              onChange={(e) => setPage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+              className={PAGE_INPUT}
+            />
+            <button onClick={save} className="px-2 py-1 text-xs rounded bg-blue-500 text-white hover:bg-blue-600">
+              {log ? '저장' : '체크'}
+            </button>
+            <FinishButton book={book} date={date} onFinish={onFinish} />
+            {editing && (
+              <button onClick={() => setEditing(false)} className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700 hover:bg-gray-200">
+                취소
+              </button>
+            )}
+          </div>
+        )}
+        <button
+          onClick={() => onMemo(book, date)}
+          title="이 날짜의 독서 메모를 데일리노트로 기록"
+          className="px-2 py-1 text-xs rounded border text-gray-600 hover:bg-white"
+        >
+          메모
+        </button>
+      </div>
+      {notes.length > 0 && (
+        <div className="mt-2 ml-6 space-y-2">
+          {notes.map((note) => (
+            <div key={note.id} className="p-2 rounded bg-white border">
+              <div className="text-sm font-semibold text-gray-800">{note.item}</div>
+              {note.content && (
+                <div
+                  className="mt-1 text-sm text-gray-700 markdown-body"
+                  dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(note.content) }}
+                />
+              )}
+              <div className="mt-1 flex flex-wrap gap-1">
+                {note.category && (
+                  <span className="px-1.5 py-0.5 text-[11px] rounded bg-purple-50 text-purple-600">{note.category}</span>
+                )}
+                {noteKeywords(note).map((tag) => (
+                  <span key={tag} className="px-1.5 py-0.5 text-[11px] rounded bg-gray-100 text-gray-500">#{tag}</span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// 오늘의 독서 → 데일리노트 입력 모달. 제목·내용만 받고, 태그는 저장 시점에 서버가 AI로 추출한다.
+function NoteModal({ target, onClose, onSave }) {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [preview, setPreview] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      const result = await onSave(target.book.id, { date: target.date, title, content });
+      if (result?.tag_error) alert(`메모는 저장했지만 AI 태그 추출에 실패해 책 제목만 태그로 넣었습니다.\n(${result.tag_error})`);
+      onClose();
+    } catch (err) {
+      alert(err.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-2xl rounded border bg-white shadow-xl p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div>
+          <h3 className="font-semibold text-gray-800">독서 메모</h3>
+          <p className="text-xs text-gray-400">{target.book.title} · {target.date} · 데일리노트에 저장되며 태그는 AI가 자동 추출합니다</p>
+        </div>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="제목"
+          autoFocus
+          className={'w-full ' + INPUT}
+        />
+        <div>
+          <div className="flex justify-end gap-1 mb-1">
+            {['작성', '미리보기'].map((label, i) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setPreview(i === 1)}
+                className={'px-2 py-0.5 text-xs rounded ' + (preview === (i === 1) ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {preview ? (
+            <div
+              className="min-h-[12rem] max-h-[50vh] overflow-y-auto px-3 py-2 text-sm text-gray-700 border rounded markdown-body"
+              dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(content) || '<p class="text-gray-400">내용 없음</p>' }}
+            />
+          ) : (
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows="10"
+              placeholder="마크다운 문법으로 자유롭게 기록"
+              className={'w-full font-mono resize-y ' + INPUT}
+            />
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            onClick={save}
+            disabled={busy || !title.trim()}
+            className="px-3 py-1.5 text-xs font-semibold rounded bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {busy ? '저장 중 (AI 태그 추출)...' : '저장'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -324,11 +440,12 @@ function BookRow({ book, today, onSave, onRemove }) {
 }
 
 export default function ReadingLog() {
-  const { books, loaded, addBook, updateBook, removeBook, checkLog, uncheckLog } = useReading();
+  const { books, loaded, addBook, updateBook, removeBook, checkLog, uncheckLog, addNote } = useReading();
   const today = useToday();
   const [selectedDate, setSelectedDate] = useState(today);
   const [bookForm, setBookForm] = useState(() => createEmptyBookForm(today));
   const [finishTarget, setFinishTarget] = useState(null); // 완독 확인 모달 대상 { book, date }
+  const [noteTarget, setNoteTarget] = useState(null); // 독서 메모 모달 대상 { book, date }
 
   // 자정이 지나면 선택 날짜도 새 오늘로 넘어간다(지난 날짜를 보고 있던 경우는 유지)
   useEffect(() => {
@@ -420,6 +537,7 @@ export default function ReadingLog() {
                     onCheck={checkLog}
                     onUncheck={uncheckLog}
                     onFinish={(target, date) => setFinishTarget({ book: target, date })}
+                    onMemo={(target, date) => setNoteTarget({ book: target, date })}
                   />
                 ))
               )}
@@ -466,6 +584,8 @@ export default function ReadingLog() {
           </aside>
         </div>
       </div>
+
+      {noteTarget && <NoteModal target={noteTarget} onClose={() => setNoteTarget(null)} onSave={addNote} />}
 
       {finishTarget && (
         <div

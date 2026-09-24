@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { createBook, deleteBook, deleteLog, fetchBooks, putLog, updateBook } from '../api/reading';
+import { createBook, createReadingNote, deleteBook, deleteLog, fetchBooks, putLog, updateBook } from '../api/reading';
 
 export function useReading() {
   const [books, setBooks] = useState([]);
@@ -27,5 +27,6 @@ export function useReading() {
     removeBook: (id) => reloadAfter(() => deleteBook(id)),
     checkLog: (bookId, date, pageTo) => reloadAfter(() => putLog(bookId, date, pageTo)),
     uncheckLog: (bookId, date) => reloadAfter(() => deleteLog(bookId, date)),
+    addNote: (bookId, payload) => reloadAfter(() => createReadingNote(bookId, payload)),
   };
 }
