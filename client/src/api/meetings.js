@@ -28,6 +28,15 @@ export async function fetchMeetingDetail(id) {
   return readJsonOrThrow(res, '회의록 상세 조회 실패');
 }
 
+export async function updateMeeting(id, payload) {
+  const res = await fetch(`${BASE}/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return readJsonOrThrow(res, '회의록 수정 실패');
+}
+
 export async function deleteMeeting(id) {
   const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
   return readJsonOrThrow(res, '회의록 삭제 실패');

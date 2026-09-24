@@ -166,6 +166,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 CREATE TABLE IF NOT EXISTS meetings (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   date       TEXT    NOT NULL,
+  title      TEXT,
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
@@ -183,9 +184,10 @@ CREATE TABLE IF NOT EXISTS meeting_overall_items (
 CREATE TABLE IF NOT EXISTS meeting_part_items (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  part       TEXT,
   assignee   TEXT    NOT NULL,
-  progress   TEXT,
-  request    TEXT,
+  kind       TEXT    NOT NULL DEFAULT 'progress' CHECK (kind IN ('progress', 'request')),
+  content    TEXT    NOT NULL,
   position   INTEGER NOT NULL DEFAULT 0,
   created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
