@@ -6,7 +6,7 @@ const { nowString, nextId, NotFoundError, asyncHandler } = require('../db/util')
 const router = express.Router();
 const booksRef = firestore.collection(READING_BOOKS);
 const logsRef = firestore.collection(READING_LOGS);
-const DAILY_TARGET = 10;
+const DEFAULT_DAILY_TARGET = 10;
 
 function badRequest(message) {
   const err = new Error(message);
@@ -70,7 +70,10 @@ function validateBookFields(body, current) {
   const startDate = body.start_date || current?.start_date || todayString();
   if (!isDateString(startDate)) throw badRequest('시작일 형식이 올바르지 않습니다.');
 
-  return { title, total_pages: total, start_page: start, start_date: startDate };
+  const target = toPage(body.daily_target, current?.daily_target ?? DEFAULT_DAILY_TARGET);
+  if (!Number.isInteger(target) || target < 1) throw badRequest('하루 목표 페이지는 1 이상의 정수로 입력해주세요.');
+
+  return { title, total_pages: total, start_page: start, start_date: startDate, daily_target: target };
 }
 
 // GET /api/reading/books - 전체 책 + 기록 (데이터 양이 적어 전체 로드)
@@ -98,7 +101,7 @@ router.post('/books', asyncHandler(async (req, res) => {
   const book = await firestore.runTransaction(async (tx) => {
     const id = await nextId(tx, COUNTER_KEYS.READING_BOOKS);
     const now = nowString();
-    const doc = { id, ...fields, daily_target: DAILY_TARGET, finished_at: null, created_at: now, updated_at: now };
+    const doc = { id, ...fields, finished_at: null, created_at: now, updated_at: now };
     doc.finished_at = computeFinishedAt(doc, []);
     tx.set(booksRef.doc(String(id)), doc);
     return doc;

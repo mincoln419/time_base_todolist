@@ -1,7 +1,8 @@
 // 독서기록 파생값 계산 — 서버는 page_to만 저장하고 나머지는 모두 여기서 계산한다.
 // 날짜는 항상 로컬 기준 YYYY-MM-DD 문자열로 다룬다(toISOString 사용 금지 — UTC로 하루 밀림).
 
-export const DAILY_TARGET = 10;
+export const DAILY_TARGET = 10; // 기본 하루 목표(최소 습관 기준)
+export const LOAN_DAYS = 21; // 도서관 대출 기간
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -64,8 +65,8 @@ export function daysLeft(total, current, target = DAILY_TARGET) {
 }
 
 // 완독 예상일: 기준일(예정이면 시작일, 오늘 읽었으면 내일, 아니면 오늘)부터 남은 일수만큼
-export function estimateFinish({ total, current, startDate, readToday }, today) {
-  const left = daysLeft(total, current);
+export function estimateFinish({ total, current, target, startDate, readToday }, today) {
+  const left = daysLeft(total, current, target);
   if (left === 0) return null;
   let base = readToday ? addDays(today, 1) : today;
   if (startDate > today) base = startDate;
@@ -76,6 +77,7 @@ export function bookEta(book, today) {
   return estimateFinish({
     total: book.total_pages,
     current: currentPage(book),
+    target: book.daily_target,
     startDate: book.start_date,
     readToday: !!logOn(book, today),
   }, today);
@@ -101,9 +103,22 @@ export function dailyTotals(books) {
       prev = log.page_to;
       const entry = totals.get(log.date) ?? { pages: 0, items: [] };
       entry.pages += pages;
-      entry.items.push({ title: book.title, pages });
+      entry.items.push({ title: book.title, pages, target: book.daily_target });
       totals.set(log.date, entry);
     }
   }
   return totals;
+}
+
+// 시작일로부터 대출 기간(21일) 안에 끝내기 위한 하루 목표 — 기본 목표보다 낮추지는 않는다.
+// 이미 지난 날은 빼고, 오늘부터 반납일(시작일 + 20일)까지 남은 날로 나눈다.
+export function targetForLoan({ total, current, startDate }, today) {
+  const from = startDate > today ? startDate : today;
+  const dueDate = addDays(startDate, LOAN_DAYS - 1);
+  const available = Math.max(1, daysBetween(from, dueDate) + 1);
+  return Math.max(DAILY_TARGET, Math.ceil(Math.max(0, total - current) / available));
+}
+
+export function loanDueDate(startDate) {
+  return addDays(startDate, LOAN_DAYS - 1);
 }

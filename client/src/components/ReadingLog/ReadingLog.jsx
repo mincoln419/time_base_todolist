@@ -11,9 +11,11 @@ import {
   daysBetween,
   daysLeft,
   estimateFinish,
+  loanDueDate,
   logOn,
   missedDays,
   pageBefore,
+  targetForLoan,
   todayString,
 } from '../../utils/readingCalc';
 
@@ -21,7 +23,7 @@ const INPUT = 'px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 
 const PAGE_INPUT = 'w-20 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300';
 
 function createEmptyBookForm(today) {
-  return { title: '', start_date: today, start_page: '0', total_pages: '' };
+  return { title: '', start_date: today, start_page: '0', total_pages: '', daily_target: String(DAILY_TARGET) };
 }
 
 function toBookForm(book) {
@@ -30,6 +32,7 @@ function toBookForm(book) {
     start_date: book.start_date,
     start_page: String(book.start_page),
     total_pages: String(book.total_pages),
+    daily_target: String(book.daily_target),
   };
 }
 
@@ -39,6 +42,7 @@ function toPayload(form) {
     start_date: form.start_date,
     start_page: Number(form.start_page || 0),
     total_pages: Number(form.total_pages),
+    daily_target: Number(form.daily_target || DAILY_TARGET),
   };
 }
 
@@ -56,8 +60,16 @@ function useToday() {
   return today;
 }
 
-function BookFields({ form, setForm }) {
+// current: 수정 중인 책의 실제 현재 페이지(기록 반영). 신규 등록이면 폼의 현재 페이지를 쓴다.
+function BookFields({ form, setForm, today, current }) {
   const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const total = Number(form.total_pages);
+  const page = current ?? Number(form.start_page || 0);
+  const canFitLoan = Number.isInteger(total) && total > 0 && form.start_date;
+  const fitLoan = () => {
+    const target = targetForLoan({ total, current: page, startDate: form.start_date }, today);
+    setForm((prev) => ({ ...prev, daily_target: String(target) }));
+  };
   return (
     <>
       <input value={form.title} onChange={set('title')} placeholder="책 제목" className={'w-full ' + INPUT} />
@@ -75,6 +87,24 @@ function BookFields({ form, setForm }) {
           <input type="number" min="1" value={form.total_pages} onChange={set('total_pages')} className={'mt-1 w-full ' + INPUT} />
         </label>
       </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs text-gray-500">
+          하루 목표 (p)
+          <input type="number" min="1" value={form.daily_target} onChange={set('daily_target')} className={'mt-1 w-24 block ' + INPUT} />
+        </label>
+        <button
+          type="button"
+          onClick={fitLoan}
+          disabled={!canFitLoan}
+          title={form.start_date ? `반납일 ${loanDueDate(form.start_date)}까지 끝내도록 하루 목표를 계산` : ''}
+          className="px-3 py-2 text-xs rounded border text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+        >
+          대출 21일에 맞추기
+        </button>
+        {form.start_date && (
+          <span className="pb-2 text-xs text-gray-400">반납 {loanDueDate(form.start_date)}</span>
+        )}
+      </div>
     </>
   );
 }
@@ -82,14 +112,16 @@ function BookFields({ form, setForm }) {
 function BookPreview({ form, today }) {
   const total = Number(form.total_pages);
   const current = Number(form.start_page || 0);
+  const target = Number(form.daily_target);
+  if (!Number.isInteger(target) || target < 1) return null;
   if (!Number.isInteger(total) || total < 1 || !Number.isInteger(current) || current < 0 || current > total) {
     return null;
   }
-  const left = daysLeft(total, current);
-  const eta = estimateFinish({ total, current, startDate: form.start_date || today, readToday: false }, today);
+  const left = daysLeft(total, current, target);
+  const eta = estimateFinish({ total, current, target, startDate: form.start_date || today, readToday: false }, today);
   return (
     <div className="text-xs text-blue-600">
-      하루 {DAILY_TARGET}p 기준 약 {left}일 소요{eta ? ` · 예상 완독 ${eta}` : ' · 이미 완독'}
+      하루 {target}p 기준 약 {left}일 소요{eta ? ` · 예상 완독 ${eta}` : ' · 이미 완독'}
     </div>
   );
 }
@@ -97,7 +129,7 @@ function BookPreview({ form, today }) {
 function ChecklistRow({ book, date, onCheck, onUncheck }) {
   const log = logOn(book, date);
   const before = pageBefore(book, date);
-  const defaultPage = Math.min(before + DAILY_TARGET, book.total_pages);
+  const defaultPage = Math.min(before + book.daily_target, book.total_pages);
   const [page, setPage] = useState(String(log?.page_to ?? defaultPage));
   const [editing, setEditing] = useState(false);
 
@@ -142,7 +174,7 @@ function ChecklistRow({ book, date, onCheck, onUncheck }) {
           >
             {before} → {log.page_to}p <span className="text-emerald-600">(+{read})</span>
           </button>
-          {read < DAILY_TARGET && (
+          {read < book.daily_target && (
             <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 text-amber-700">목표 미달</span>
           )}
         </div>
@@ -191,7 +223,7 @@ function BookRow({ book, today, onSave, onRemove }) {
   if (editing) {
     return (
       <div className="p-2 rounded border bg-blue-50 space-y-2">
-        <BookFields form={form} setForm={setForm} />
+        <BookFields form={form} setForm={setForm} today={today} current={currentPage(book)} />
         <div className="flex justify-end gap-2">
           <button
             onClick={() => setEditing(false)}
@@ -231,7 +263,7 @@ function BookRow({ book, today, onSave, onRemove }) {
             {currentPage(book)} / {book.total_pages}p ({percent(book)}%)
             {status === 'done' && ` · ${book.start_date} ~ ${book.finished_at} (${daysBetween(book.start_date, book.finished_at) + 1}일)`}
             {status === 'planned' && ` · ${book.start_date} 시작`}
-            {status !== 'done' && ` · ${daysLeft(book.total_pages, currentPage(book))}일 남음`}
+            {status !== 'done' && ` · 하루 ${book.daily_target}p · ${daysLeft(book.total_pages, currentPage(book), book.daily_target)}일 남음`}
             {eta && ` · 예상 ${eta}`}
             {missed > 0 && <span className="text-gray-400"> · 놓친 날 {missed}일</span>}
           </div>
@@ -286,7 +318,7 @@ export default function ReadingLog() {
       const sb = bookStatus(b, today);
       if (sa !== sb) return sa === 'reading' ? -1 : 1;
       if (sa === 'planned') return a.start_date.localeCompare(b.start_date);
-      return daysLeft(a.total_pages, currentPage(a)) - daysLeft(b.total_pages, currentPage(b));
+      return daysLeft(a.total_pages, currentPage(a), a.daily_target) - daysLeft(b.total_pages, currentPage(b), b.daily_target);
     });
   const finished = books
     .filter((book) => bookStatus(book, today) === 'done')
@@ -362,7 +394,7 @@ export default function ReadingLog() {
             <section className="bg-white border rounded p-4">
               <h2 className="font-semibold text-gray-800 mb-3">책 추가</h2>
               <form onSubmit={submitBook} className="space-y-2">
-                <BookFields form={bookForm} setForm={setBookForm} />
+                <BookFields form={bookForm} setForm={setBookForm} today={today} />
                 <div className="flex items-center justify-between gap-2">
                   <BookPreview form={bookForm} today={today} />
                   <button type="submit" className="ml-auto px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600">

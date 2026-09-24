@@ -85,7 +85,7 @@ version: 1.2
   total_pages: number,   // ≥ 1 정수
   start_page: number,    // 등록 시점에 이미 읽은 페이지, 0 ≤ start_page ≤ total_pages
   start_date: 'YYYY-MM-DD',
-  daily_target: 10,      // 이번 범위에선 고정
+  daily_target: number,  // 1 이상 정수, 기본 10 — 책마다 설정 (기존 책은 모두 10)
   finished_at: 'YYYY-MM-DD' | null,  // 총 페이지에 도달한 기록의 날짜 (서버가 재계산)
   created_at: 'YYYY-MM-DD HH:MM:SS',
   updated_at: 'YYYY-MM-DD HH:MM:SS',
@@ -118,6 +118,8 @@ version: 1.2
 | `pagesOn(book, date)` | 그날 기록의 `page_to − pageBefore(book, date)` (기록 없으면 0) |
 | `status(book, today)` | `finished_at` 있으면 `done` / `start_date > today`면 `planned` / 그 외 `reading` |
 | `daysLeft(book)` | `ceil((total − current) / daily_target)`, 완독이면 0 |
+| `loanDueDate(start)` | `start + 20일` (대출 21일) |
+| `targetForLoan(book, today)` | `max(10, ceil((total − current) ÷ (오늘 또는 시작일 ~ 반납일 남은 날 수)))`, 반납일이 지났으면 남은 날 1로 계산 |
 | `eta(book, today)` | `base + daysLeft − 1`. `base` = planned면 `start_date`, 오늘 기록이 있으면 내일, 아니면 오늘 |
 | `missedDays(book, today)` | `start_date` ~ 어제 사이(완독일 이후 제외) 기록이 없는 날 수 |
 | `dailyTotals(books)` | `Map<date, { pages, items: [{ title, pages }] }>` — 모든 책의 `pagesOn` 합 |
