@@ -73,7 +73,12 @@ function validateBookFields(body, current) {
   const target = toPage(body.daily_target, current?.daily_target ?? DEFAULT_DAILY_TARGET);
   if (!Number.isInteger(target) || target < 1) throw badRequest('하루 목표 페이지는 1 이상의 정수로 입력해주세요.');
 
-  return { title, total_pages: total, start_page: start, start_date: startDate, daily_target: target };
+  // 반납일(선택) — 도서관 책처럼 기한이 있을 때만 입력
+  const dueDate = body.due_date !== undefined ? (body.due_date || null) : (current?.due_date ?? null);
+  if (dueDate !== null && !isDateString(dueDate)) throw badRequest('반납일 형식이 올바르지 않습니다.');
+  if (dueDate !== null && dueDate < startDate) throw badRequest('반납일은 시작일 이후로 입력해주세요.');
+
+  return { title, total_pages: total, start_page: start, start_date: startDate, daily_target: target, due_date: dueDate };
 }
 
 // GET /api/reading/books - 전체 책 + 기록 (데이터 양이 적어 전체 로드)

@@ -11,11 +11,10 @@ import {
   daysBetween,
   daysLeft,
   estimateFinish,
-  loanDueDate,
   logOn,
   missedDays,
   pageBefore,
-  targetForLoan,
+  targetForDueDate,
   todayString,
 } from '../../utils/readingCalc';
 
@@ -23,7 +22,7 @@ const INPUT = 'px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 
 const PAGE_INPUT = 'w-20 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300';
 
 function createEmptyBookForm(today) {
-  return { title: '', start_date: today, start_page: '0', total_pages: '', daily_target: String(DAILY_TARGET) };
+  return { title: '', start_date: today, start_page: '0', total_pages: '', daily_target: String(DAILY_TARGET), due_date: '' };
 }
 
 function toBookForm(book) {
@@ -33,6 +32,7 @@ function toBookForm(book) {
     start_page: String(book.start_page),
     total_pages: String(book.total_pages),
     daily_target: String(book.daily_target),
+    due_date: book.due_date ?? '',
   };
 }
 
@@ -43,7 +43,13 @@ function toPayload(form) {
     start_page: Number(form.start_page || 0),
     total_pages: Number(form.total_pages),
     daily_target: Number(form.daily_target || DAILY_TARGET),
+    due_date: form.due_date || null,
   };
+}
+
+function dDay(today, date) {
+  const diff = daysBetween(today, date);
+  return diff >= 0 ? `D-${diff}` : `D+${-diff}`;
 }
 
 function percent(book) {
@@ -60,16 +66,15 @@ function useToday() {
   return today;
 }
 
-// current: 수정 중인 책의 실제 현재 페이지(기록 반영). 신규 등록이면 폼의 현재 페이지를 쓴다.
-function BookFields({ form, setForm, today, current }) {
+// current/readToday: 수정 중인 책의 실제 현재 페이지와 오늘 기록 여부. 신규 등록이면 폼 값 기준.
+function BookFields({ form, setForm, today, current, readToday = false }) {
   const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
   const total = Number(form.total_pages);
   const page = current ?? Number(form.start_page || 0);
-  const canFitLoan = Number.isInteger(total) && total > 0 && form.start_date;
-  const fitLoan = () => {
-    const target = targetForLoan({ total, current: page, startDate: form.start_date }, today);
-    setForm((prev) => ({ ...prev, daily_target: String(target) }));
-  };
+  const dueTarget = Number.isInteger(total) && total > 0 && form.start_date && form.due_date
+    ? targetForDueDate({ total, current: page, startDate: form.start_date, dueDate: form.due_date, readToday }, today)
+    : undefined;
+  const fitDueDate = () => setForm((prev) => ({ ...prev, daily_target: String(dueTarget) }));
   return (
     <>
       <input value={form.title} onChange={set('title')} placeholder="책 제목" className={'w-full ' + INPUT} />
@@ -92,18 +97,20 @@ function BookFields({ form, setForm, today, current }) {
           하루 목표 (p)
           <input type="number" min="1" value={form.daily_target} onChange={set('daily_target')} className={'mt-1 w-24 block ' + INPUT} />
         </label>
+        <label className="text-xs text-gray-500">
+          반납일 (선택)
+          <input type="date" value={form.due_date} onChange={set('due_date')} className={'mt-1 block ' + INPUT} />
+        </label>
         <button
           type="button"
-          onClick={fitLoan}
-          disabled={!canFitLoan}
-          title={form.start_date ? `반납일 ${loanDueDate(form.start_date)}까지 끝내도록 하루 목표를 계산` : ''}
+          onClick={fitDueDate}
+          disabled={!dueTarget}
+          title="오늘부터 반납일까지 남은 날로 하루 목표를 계산"
           className="px-3 py-2 text-xs rounded border text-gray-600 hover:bg-gray-100 disabled:opacity-40"
         >
-          대출 21일에 맞추기
+          반납일 맞추기{dueTarget ? ` (${dueTarget}p)` : ''}
         </button>
-        {form.start_date && (
-          <span className="pb-2 text-xs text-gray-400">반납 {loanDueDate(form.start_date)}</span>
-        )}
+        {dueTarget === null && <span className="pb-2 text-xs text-red-500">반납일이 지났습니다</span>}
       </div>
     </>
   );
@@ -224,6 +231,7 @@ function BookRow({ book, today, onSave, onRemove }) {
   const status = bookStatus(book, today);
   const missed = status === 'reading' ? missedDays(book, today) : 0;
   const eta = bookEta(book, today);
+  const overdue = !!(book.due_date && eta && eta > book.due_date);
 
   const save = async () => {
     try {
@@ -237,7 +245,7 @@ function BookRow({ book, today, onSave, onRemove }) {
   if (editing) {
     return (
       <div className="p-2 rounded border bg-blue-50 space-y-2">
-        <BookFields form={form} setForm={setForm} today={today} current={currentPage(book)} />
+        <BookFields form={form} setForm={setForm} today={today} current={currentPage(book)} readToday={!!logOn(book, today)} />
         <div className="flex justify-end gap-2">
           <button
             onClick={() => setEditing(false)}
@@ -280,6 +288,12 @@ function BookRow({ book, today, onSave, onRemove }) {
             {status !== 'done' && ` · 하루 ${book.daily_target}p · ${daysLeft(book.total_pages, currentPage(book), book.daily_target)}일 남음`}
             {eta && ` · 예상 ${eta}`}
             {missed > 0 && <span className="text-gray-400"> · 놓친 날 {missed}일</span>}
+            {status !== 'done' && book.due_date && (
+              <span className={overdue ? 'text-red-500' : 'text-gray-400'}>
+                {` · 반납 ${book.due_date} (${dDay(today, book.due_date)})`}
+                {overdue && ' · 반납일 초과 예상'}
+              </span>
+            )}
           </div>
         </div>
         <button
