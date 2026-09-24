@@ -99,7 +99,7 @@ version: 1.3
 | FR-03 | `POST /api/daily-notes`는 새 노트를 생성한다 — `keyword` 필수, `date`는 미지정 시 오늘 날짜로 기본 설정 | High | Pending |
 | FR-04 | `PUT /api/daily-notes/:id`는 해당 노트의 필드(키워드/카테고리/항목/본문/날짜)를 갱신한다 | High | Done |
 | FR-05 | `DELETE /api/daily-notes/:id`는 해당 노트를 삭제한다 | Medium | Pending |
-| FR-06 | 본문(`content`)은 서버에서 2000자를 초과하면 400을 반환하고, 클라이언트 입력란도 `maxLength=2000`으로 제한하며 현재 글자 수를 표시한다 | High | Pending |
+| FR-06 | ~~본문(`content`)은 서버에서 2000자를 초과하면 400을 반환하고, 클라이언트 입력란도 `maxLength=2000`으로 제한하며 현재 글자 수를 표시한다~~ → (2026-09-24 amendment, reading-log) 글자 수 제한 없음 — 서버는 Firestore 문서 한도(1MiB) 초과만 막고, 클라이언트는 글자 수만 표시한다 | High | Done |
 | FR-07 | 본문은 마크다운 문법으로 작성하며, 목록/열람 화면에서는 기존 memo 렌더링 방식(marked+DOMPurify)으로 HTML 변환해 보여준다 | High | Pending |
 | FR-08 | 입력 폼에는 키워드(해시태그 칩 입력, 1개 이상 필수) · 카테고리 · 항목 · 본문(마크다운) 필드가 존재하며, 키워드를 제외한 나머지는 선택 입력이다. 키워드는 Enter/쉼표로 태그를 여러 개 추가·×로 삭제할 수 있다 (2026-09-01 amendment — 기존 "키워드"(단일)+"연관 키워드"(다중) 2필드를 "키워드"(다중, 해시태그) 1필드로 통합) | High | Done |
 | FR-09 | "데일리노트" 메뉴는 기본적으로 노트 목록(리스트) 뷰를 보여주고, 상단 탭/버튼으로 "캘린더 뷰"·"마인드맵 뷰"로 전환할 수 있다 | High | Pending |

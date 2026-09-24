@@ -229,7 +229,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 ```
 - `content` 필수 (trim 후 빈 문자열이면 400)
 
-**서버 동작**: Anthropic Messages API(`@anthropic-ai/sdk`)를 `strict: true` 커스텀 툴(`extract_tags`) + `tool_choice`로 강제 호출해 `{ category, keywords }` 형태의 구조화된 JSON만 받는다. 모델은 `claude-sonnet-5`(사용자 지정), `output_config: { effort: "low" }`(분류/추출류 작업이라 낮은 effort로 충분 — 비용 절감). DB에는 저장하지 않고 결과만 그대로 응답한다.
+**서버 동작**: Anthropic Messages API(`@anthropic-ai/sdk`)를 `strict: true` 커스텀 툴(`extract_tags`) + `tool_choice`로 강제 호출해 `{ category, keywords }` 형태의 구조화된 JSON만 받는다. 모델은 `claude-haiku-4-5`(2026-09-24 사용자 요청으로 `claude-sonnet-5`에서 변경 — 추론이 필요 없는 분류/추출이라 저렴한 모델로 충분, Haiku는 `effort` 파라미터를 쓰지 않음). 호출 로직은 `server/services/noteTags.js`로 분리되어 독서 메모 저장과 공유한다. DB에는 저장하지 않고 결과만 그대로 응답한다.
 
 **Response (200):**
 ```json

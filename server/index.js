@@ -24,6 +24,7 @@ app.use('/api/backup', require('./routes/backup'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/notify', require('./routes/notify'));
 app.use('/api/meetings', require('./routes/meetings'));
+app.use('/api/reading', require('./routes/reading'));
 
 app.use((err, req, res, next) => {
   console.error(err);

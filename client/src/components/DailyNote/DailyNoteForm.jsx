@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { noteKeywords } from './noteUtils';
 import { extractDailyNoteTags } from '../../api/dailyNotes';
 
-const MAX_CONTENT_LENGTH = 2000;
 
 function toDateString(d) {
   const y = d.getFullYear();
@@ -191,15 +190,14 @@ export default function DailyNoteForm({ initialNote, defaultDate, onSubmit, onCa
         </div>
         <textarea
           value={draft.content}
-          onChange={(e) => setDraft((prev) => ({ ...prev, content: e.target.value.slice(0, MAX_CONTENT_LENGTH) }))}
-          maxLength={MAX_CONTENT_LENGTH}
+          onChange={(e) => setDraft((prev) => ({ ...prev, content: e.target.value }))}
           rows="8"
           placeholder="마크다운 문법으로 자유롭게 기록 (AI가 정리한 내용을 붙여넣어도 좋습니다)"
           className="w-full px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none font-mono"
         />
         <div className="mt-1 flex items-center justify-between gap-3">
           <span className="text-xs text-red-500">{aiError}</span>
-          <span className="text-[11px] text-gray-400 flex-shrink-0">{draft.content.length}/{MAX_CONTENT_LENGTH}</span>
+          <span className="text-[11px] text-gray-400 flex-shrink-0">{draft.content.length}자</span>
         </div>
         {!aiError && (
           <p className="mt-0.5 text-[11px] text-gray-400">
