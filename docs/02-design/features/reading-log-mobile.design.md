@@ -483,7 +483,7 @@ mobile/
 
 1. [x] `mobile/` Flutter 프로젝트 생성 (`com.codenyang.readinglog`, iOS·Android) — 2026-09-25
 2. [ ] M0: Firebase dev/prod 프로젝트, flavor 구성, `flutterfire configure`, `mobile/README.md` 세팅 문서
-3. [ ] M1: `domain/` (DateKey, Book, ReadingCalc, Validators) + §11.1 테스트
+3. [x] M1: `domain/` (DateKey, Book, ReadingCalc, Validators) + §11.1 테스트 — 2026-09-25, 28개 통과
 4. [ ] M1: `firebase/firestore.rules` + §11.2 규칙 테스트
 5. [ ] M2: `data/` 리포지토리, Auth(Apple/Google), 라우터·셸
 6. [ ] M2: 오늘의 독서 → 책 목록/폼 → 잔디
