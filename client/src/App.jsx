@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import DateNavigator from './components/DateNavigator';
 import TaskBacklog from './components/TaskBacklog/TaskBacklog';
@@ -39,6 +39,12 @@ const SCHEDULE_VIEWS = [
   { id: 'weekly', label: '주간' },
 ];
 
+// URL 해시(#reading 등)에 현재 탭을 기록해, 새로고침해도 보던 탭이 유지되게 한다
+function tabFromHash() {
+  const id = window.location.hash.slice(1);
+  return TABS.some((t) => t.id === id) ? id : 'schedule';
+}
+
 function toDateString(d) {
   return d.toISOString().slice(0, 10);
 }
@@ -48,7 +54,7 @@ const MIN_DURATION_STEP = 30; // 남은 시간이 부족할 때 낮출 단위
 const DAY_END_MIN = 24 * 60;
 
 export default function App() {
-  const [tab, setTab] = useState('schedule');
+  const [tab, setTab] = useState(tabFromHash);
   const [scheduleView, setScheduleView] = useState('daily'); // 일정관리 내부 뷰 전환 — 데일리노트 VIEWS 패턴 재사용
   const [date, setDate] = useState(toDateString(new Date()));
   const [activeItem, setActiveItem] = useState(null); // DragOverlay용
@@ -66,22 +72,35 @@ export default function App() {
 
   // 탭 전환마다 History 엔트리를 쌓아, 브라우저 뒤로가기로 이전 탭으로 돌아갈 수 있게 한다
   useEffect(() => {
-    window.history.replaceState({ tab: 'schedule' }, '');
-    const onPopState = (e) => setTab(e.state?.tab ?? 'schedule');
+    window.history.replaceState({ tab: tabFromHash() }, '');
+    const onPopState = (e) => setTab(e.state?.tab ?? tabFromHash());
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   const goToTab = (nextTab) => {
     if (nextTab === tab) return;
-    window.history.pushState({ tab: nextTab }, '');
+    window.history.pushState({ tab: nextTab }, '', `#${nextTab}`);
     setTab(nextTab);
   };
 
-  // 데이터 폴링과 별개로, 탭을 오래 켜둬도 최신 빌드/상태를 반영하도록 30분마다 전체 새로고침
+  // 데이터 폴링과 별개로, 탭을 오래 켜둬도 최신 빌드/상태를 반영하도록 매시 00분·30분마다 전체 새로고침
+  // 새로고침하면 탭이 일정관리로 초기화되므로, 해당 시점에 일정관리 탭일 때만 새로고침하고 다른 탭이면 건너뛴다
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   useEffect(() => {
-    const timer = setInterval(() => window.location.reload(), 30 * 60 * 1000);
-    return () => clearInterval(timer);
+    let timer;
+    const scheduleNextHalfHour = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setMinutes(now.getMinutes() < 30 ? 30 : 60, 0, 0);
+      timer = setTimeout(() => {
+        if (tabRef.current === 'schedule') window.location.reload();
+        else scheduleNextHalfHour();
+      }, next - now);
+    };
+    scheduleNextHalfHour();
+    return () => clearTimeout(timer);
   }, []);
 
   // 드롭 지점부터 다음 일정(또는 하루 끝)까지 남은 시간에 맞춰 기본 길이를 정한다 — 60분이 다 안 남으면 30분 단위로 축소

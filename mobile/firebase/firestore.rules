@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// 독서기록 모바일 앱 보안 규칙 (Design §5).
+// 규칙은 소유자·형식·범위만 보장한다. logs 값이 날짜순으로 늘어나는지 같은 map 전체 검증은
+// 규칙이 반복문을 지원하지 않아 앱 도메인 계층(LogValidator)이 담당한다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isDateKey(v) {
+      return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // 남용 방지용 기술적 한도(도메인 값 아님) — 정상 사용에서는 닿지 않는 크기
+    function withinTextLimit(v) {
+      return v.size() <= 500;
+    }
+
+    match /users/{uid} {
+      function validUser(d) {
+        return d.keys().hasOnly(['created_at', 'default_daily_target', 'heatmap_weeks'])
+          && d.default_daily_target is int && d.default_daily_target >= 1
+          && d.heatmap_weeks is int && d.heatmap_weeks >= 1;
+      }
+
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validUser(request.resource.data);
+
+      match /books/{bookId} {
+        function validBook(d) {
+          return d.keys().hasOnly([
+              'title', 'total_pages', 'start_page', 'start_date', 'daily_target',
+              'due_date', 'logs', 'finished_at', 'created_at', 'updated_at'])
+            && d.keys().hasAll(['title', 'total_pages', 'start_page', 'start_date', 'daily_target', 'logs'])
+            && d.title is string && d.title.size() > 0 && withinTextLimit(d.title)
+            && d.total_pages is int && d.total_pages >= 1
+            && d.start_page is int && d.start_page >= 0 && d.start_page <= d.total_pages
+            && d.daily_target is int && d.daily_target >= 1
+            && isDateKey(d.start_date)
+            && (d.get('due_date', null) == null || (isDateKey(d.due_date) && d.due_date >= d.start_date))
+            && (d.get('finished_at', null) == null || isDateKey(d.finished_at))
+            && d.logs is map;
+        }
+
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validBook(request.resource.data);
+      }
+    }
+  }
+}
