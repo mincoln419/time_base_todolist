@@ -30,6 +30,7 @@ cd client && npm install && npm run dev
 
 ```
 time_based_todolist/
+├── mobile/                   # 독서기록 Flutter 앱 (별도 제품, com.codenyang.readinglog) — docs/02-design/features/reading-log-mobile.design.md
 ├── server/
 │   ├── db/
 │   │   ├── firestore.js      # firebase-admin 초기화, Firestore 클라이언트 싱글턴

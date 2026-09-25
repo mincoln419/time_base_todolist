@@ -238,12 +238,13 @@ version: 1.3
 | 도메인 계산 | 앱 / Cloud Functions | 앱 (순수 Dart 모듈) | 웹과 동일하게 파생값은 클라이언트 계산, 오프라인 동작 |
 | 계정 삭제 | 앱에서 직접 / Cloud Function | Design에서 결정 (Auth 삭제 + 하위 데이터 재귀 삭제 보장 방식) | 대량 삭제·재인증 처리 |
 | 크래시/통계 | Firebase Crashlytics + Analytics | 채택 | 같은 Firebase 생태계, 공시 항목 명확 |
-| 저장소 | 이 리포 하위 폴더 / 별도 리포 | 별도 리포 권장 (문서는 이 리포 `docs/`에서 시작, Design 시점 이관 여부 결정) | 웹과 완전 분리된 독립 제품, 빌드·서명·CI가 별개 |
+| 저장소 | 이 리포 하위 폴더 / 별도 리포 | **이 리포 `mobile/`** (2026-09-25 사용자 결정) | 문서·이력을 함께 관리. 코드는 웹과 공유하지 않음 |
+| 패키지/번들 ID | — | **`com.codenyang.readinglog`** (iOS·Android 동일, 2026-09-25 확정) | 요청한 `reading-log`의 하이픈은 Android applicationId에서 사용 불가 |
 
 ### 6.3 Folder Structure Preview (제안)
 
 ```
-reading_log_mobile/
+mobile/
 ├── lib/
 │   ├── app/                 # 앱 진입, 라우터, 테마
 │   ├── core/                # 날짜 유틸(로컬 YYYY-MM-DD), 공통 위젯, 에러
