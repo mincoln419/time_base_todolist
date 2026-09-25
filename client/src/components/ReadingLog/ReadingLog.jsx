@@ -257,8 +257,9 @@ function NoteModal({ target, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => !busy && onClose()}>
-      <div className="w-full max-w-2xl rounded border bg-white shadow-xl p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+    // 긴 글을 쓰는 모달이라 바깥 클릭으로 닫지 않는다 — 취소/저장 버튼으로만 닫힘
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-2xl rounded border bg-white shadow-xl p-4 space-y-3">
         <div>
           <h3 className="font-semibold text-gray-800">독서 메모</h3>
           <p className="text-xs text-gray-500">

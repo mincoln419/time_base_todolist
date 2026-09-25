@@ -100,6 +100,13 @@ For multi-step tasks, state a brief plan with verifiable success criteria before
 
 ---
 
+## UI 원칙
+
+- **긴 입력을 받는 모달**(메모·본문 textarea 등)은 배경(바깥) 클릭으로 닫지 않는다. 명시적인 닫기/취소/저장 버튼으로만 닫혀야 한다 — 실수 클릭으로 작성 중인 글이 날아가지 않게 하기 위함.
+- 확인창·미리보기·한 줄 입력처럼 잃을 내용이 없는 모달은 바깥 클릭 닫기를 허용한다.
+
+---
+
 ## 도구 호출 최소화 원칙
 
 | 상황 | 사용 도구 |
