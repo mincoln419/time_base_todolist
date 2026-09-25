@@ -78,11 +78,13 @@ export default function App() {
     setTab(nextTab);
   };
 
-  // 데이터 폴링과 별개로, 탭을 오래 켜둬도 최신 빌드/상태를 반영하도록 30분마다 전체 새로고침
+  // 데이터 폴링과 별개로, 탭을 오래 켜둬도 최신 빌드/상태를 반영하도록 30분마다 전체 새로고침.
+  // 새로고침하면 탭이 일정관리로 초기화되므로 일정관리 탭에 머무는 동안에만 돌린다(다른 탭 작업 중 튕김 방지).
   useEffect(() => {
+    if (tab !== 'schedule') return undefined;
     const timer = setInterval(() => window.location.reload(), 30 * 60 * 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [tab]);
 
   // 드롭 지점부터 다음 일정(또는 하루 끝)까지 남은 시간에 맞춰 기본 길이를 정한다 — 60분이 다 안 남으면 30분 단위로 축소
   const getDefaultDuration = (startMin) => {
