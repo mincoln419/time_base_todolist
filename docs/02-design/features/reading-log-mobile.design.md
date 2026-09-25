@@ -224,6 +224,8 @@ class Book {
 
 ## 5. Security Rules (`mobile/firebase/firestore.rules`)
 
+> 2026-09-25 구현: 아래 초안에 더해 허용 필드 화이트리스트(`keys().hasOnly`), 필수 필드(`hasAll`), 제목 길이 기술 한도를 넣었다. 에뮬레이터 테스트 21건 통과(`mobile/firebase/rules-test`).
+
 ```
 rules_version = '2';
 service cloud.firestore {
@@ -402,9 +404,10 @@ mobile/
 │   └── l10n/app_ko.arb
 ├── test/domain/                      # 웹 시나리오 이식 테스트
 ├── test/features/                    # 위젯 테스트
+├── firebase.json                     # flutterfire 설정 + Firestore 규칙/에뮬레이터 설정 (flutterfire가 생성한 파일을 함께 사용)
 ├── firebase/
-│   ├── firebase.json, firestore.rules, firestore.indexes.json
-│   └── rules-test/                   # 에뮬레이터 규칙 테스트 (node)
+│   ├── firestore.rules, firestore.indexes.json
+│   └── rules-test/                   # 에뮬레이터 규칙 테스트 (node --test)
 └── android/, ios/
 ```
 
@@ -482,9 +485,9 @@ mobile/
 ### 13.1 Implementation Order (Plan §8 마일스톤과 대응)
 
 1. [x] `mobile/` Flutter 프로젝트 생성 (`com.codenyang.readinglog`, iOS·Android) — 2026-09-25
-2. [ ] M0: Firebase dev/prod 프로젝트, flavor 구성, `flutterfire configure`, `mobile/README.md` 세팅 문서
+2. [~] M0: `flutterfire configure` 완료(프로젝트 `readinglog-efa02`, 2026-09-25), `mobile/README.md` 세팅 문서 — dev/prod 분리·flavor는 사용자 결정 대기
 3. [x] M1: `domain/` (DateKey, Book, ReadingCalc, Validators) + §11.1 테스트 — 2026-09-25, 28개 통과
-4. [ ] M1: `firebase/firestore.rules` + §11.2 규칙 테스트
+4. [x] M1: `firebase/firestore.rules` + §11.2 규칙 테스트 — 2026-09-25, 21건 통과
 5. [ ] M2: `data/` 리포지토리, Auth(Apple/Google), 라우터·셸
 6. [ ] M2: 오늘의 독서 → 책 목록/폼 → 잔디
 7. [ ] M3: 설정, 리마인더, 계정 삭제, 오프라인 표시, 다크 모드·접근성, Crashlytics/Analytics
