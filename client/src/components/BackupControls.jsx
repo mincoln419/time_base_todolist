@@ -11,6 +11,7 @@ const TYPE_LABELS = {
   longgoals: '장기목표',
   warroom: '업무 배치 보드',
   dailynote: '데일리노트',
+  reading: '독서기록',
 };
 
 function fileSafeLabel(label) {

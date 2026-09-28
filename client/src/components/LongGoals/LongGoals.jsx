@@ -439,12 +439,12 @@ export default function LongGoals() {
               <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
                 <section className="bg-white border rounded p-4">
                   <h2 className="font-semibold text-gray-800 mb-3">세부 목표</h2>
-                  <form onSubmit={submitSubgoal} className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_140px_140px_72px] gap-2 mb-3">
+                  <form onSubmit={submitSubgoal} className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_72px] gap-2 mb-3">
                     <input
                       value={subgoalForm.title}
                       onChange={(e) => setSubgoalForm((prev) => ({ ...prev, title: e.target.value }))}
                       placeholder="세부 목표"
-                      className="px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="md:col-span-3 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
                     />
                     <input
                       type="date"
@@ -465,7 +465,7 @@ export default function LongGoals() {
                       value={subgoalForm.notes}
                       onChange={(e) => setSubgoalForm((prev) => ({ ...prev, notes: e.target.value }))}
                       placeholder="메모"
-                      className="md:col-span-4 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="md:col-span-3 px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300"
                     />
                   </form>
                   <div className="space-y-2">

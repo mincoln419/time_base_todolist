@@ -56,4 +56,12 @@ function asyncHandler(fn) {
   };
 }
 
-module.exports = { nowString, nextId, nextIds, NotFoundError, ConflictError, asyncHandler };
+// Firestore 문서 1건의 최대 크기는 1MiB — 자유 텍스트(마크다운 본문 등)는 앱에서 글자 수를 제한하지 않고,
+// 다른 필드 몫을 남겨 이 한도를 넘지 않는지만 확인한다.
+const MAX_TEXT_FIELD_BYTES = 900 * 1024;
+
+function exceedsTextFieldLimit(text) {
+  return Buffer.byteLength(text || '', 'utf8') > MAX_TEXT_FIELD_BYTES;
+}
+
+module.exports = { nowString, nextId, nextIds, NotFoundError, ConflictError, asyncHandler, exceedsTextFieldLimit };

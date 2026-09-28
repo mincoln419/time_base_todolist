@@ -3,7 +3,7 @@ const { firestore } = require('../db/firestore');
 const {
   TASKS, SCHEDULES, FOCUS_MAP, CUSTOMERS, TICKETS, WORRIES, WORRY_ATTEMPTS,
   LONG_GOALS, LONG_GOAL_SUBGOALS, LONG_GOAL_REQUIREMENTS, LONG_GOAL_REWARDS, BUCKET_LIST_ITEMS,
-  WARROOM_RAILS, WARROOM_MEMBERS, WARROOM_MEMBER_TASKS, DAILY_NOTES,
+  WARROOM_RAILS, WARROOM_MEMBERS, WARROOM_MEMBER_TASKS, DAILY_NOTES, READING_BOOKS, READING_LOGS,
 } = require('../db/collections');
 const { asyncHandler } = require('../db/util');
 
@@ -28,6 +28,8 @@ const SIMPLE_TABLES = {
   warroom_members: WARROOM_MEMBERS,
   warroom_member_tasks: WARROOM_MEMBER_TASKS,
   daily_notes: DAILY_NOTES,
+  reading_books: READING_BOOKS,
+  reading_logs: READING_LOGS,
 };
 const ATTEMPTS_TABLE = 'unconscious_worry_attempts';
 
@@ -39,12 +41,14 @@ const BACKUP_TYPES = {
       'unconscious_worries', 'unconscious_worry_attempts',
       'long_goal_rewards', 'long_goal_requirements', 'long_goal_subgoals', 'long_goals',
       'bucket_list_items', 'warroom_rails', 'warroom_members', 'warroom_member_tasks', 'daily_notes',
+      'reading_books', 'reading_logs',
     ],
     deleteTables: [
       'tickets', 'unconscious_worry_attempts', 'unconscious_worries',
       'long_goal_rewards', 'long_goal_requirements', 'long_goal_subgoals', 'long_goals',
       'bucket_list_items', 'customers', 'tasks', 'schedules', 'focus_map',
       'warroom_member_tasks', 'warroom_members', 'warroom_rails', 'daily_notes',
+      'reading_logs', 'reading_books',
     ],
   },
   schedule: { label: '일정관리', tables: ['tasks', 'schedules'], deleteTables: ['tasks', 'schedules'] },
@@ -67,6 +71,7 @@ const BACKUP_TYPES = {
     deleteTables: ['warroom_member_tasks', 'warroom_members', 'warroom_rails'],
   },
   dailynote: { label: '데일리노트', tables: ['daily_notes'], deleteTables: ['daily_notes'] },
+  reading: { label: '독서기록', tables: ['reading_books', 'reading_logs'], deleteTables: ['reading_logs', 'reading_books'] },
 };
 
 function getBackupType(type) {
