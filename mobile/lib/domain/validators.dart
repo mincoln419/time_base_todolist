@@ -50,6 +50,11 @@ class LogDateOutOfRange extends ValidationError {
   const LogDateOutOfRange();
 }
 
+/// 중단한 책에 중단일 이후 새 기록을 넣으려 함.
+class StoppedBook extends ValidationError {
+  const StoppedBook();
+}
+
 /// 기록 페이지가 이전 기록(또는 시작 페이지) 이하.
 class NotAfterPrevious extends ValidationError {
   const NotAfterPrevious(this.previousPage);
@@ -120,6 +125,8 @@ abstract final class LogValidator {
   /// 날짜순으로 페이지가 계속 늘어나도록 앞뒤 기록 사이 값만 허용한다(웹 서버 규칙 이식).
   static ValidationError? validate(Book book, DateKey date, int pageTo, {required DateKey today}) {
     if (date < book.startDate || date > today) return const LogDateOutOfRange();
+    final stopped = book.stoppedAt;
+    if (stopped != null && date >= stopped && !book.logs.containsKey(date)) return const StoppedBook();
 
     final before = ReadingCalc.pageBefore(book, date);
     if (pageTo <= before) return NotAfterPrevious(before);

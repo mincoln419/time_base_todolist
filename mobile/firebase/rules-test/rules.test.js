@@ -94,6 +94,7 @@ describe('책 형식·범위 검증', () => {
     '시작일 형식': { start_date: '2026/09/24' },
     '반납일 < 시작일': { due_date: '2026-09-23' },
     '완독일 형식': { finished_at: 'yesterday' },
+    '중단일 형식': { stopped_at: 'today' },
     'logs가 map 아님': { logs: [52] },
     '허용하지 않은 필드': { owner: 'bob' },
   };
@@ -119,6 +120,8 @@ describe('책 형식·범위 검증', () => {
     await seedAliceBook();
     await assertSucceeds(updateDoc(aliceBook(alice()), { daily_target: 20, due_date: '2026-10-14' }));
     await assertSucceeds(updateDoc(aliceBook(alice()), { 'logs.2026-09-25': 62, finished_at: null }));
+    await assertSucceeds(updateDoc(aliceBook(alice()), { stopped_at: '2026-09-26' }));
+    await assertSucceeds(updateDoc(aliceBook(alice()), { stopped_at: null }));
   });
 
   test('수정 결과가 규칙을 어기면 거부 (부분 업데이트도 전체 문서로 검사)', async () => {

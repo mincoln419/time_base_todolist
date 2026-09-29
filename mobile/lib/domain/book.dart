@@ -17,6 +17,7 @@ class Book {
     required this.dailyTarget,
     this.dueDate,
     this.finishedAt,
+    this.stoppedAt,
     Map<DateKey, int> logs = const {},
   }) : logs = UnmodifiableMapView(SplayTreeMap<DateKey, int>.of(logs));
 
@@ -37,6 +38,9 @@ class Book {
   /// 총 페이지에 처음 도달한 기록의 날짜. 기록이 바뀔 때마다 [ReadingCalc.computeFinishedAt]으로 다시 계산.
   final DateKey? finishedAt;
 
+  /// 독서를 중단한 날. 중단해도 기록은 남겨 읽은 만큼은 계속 보여준다.
+  final DateKey? stoppedAt;
+
   /// 날짜 오름차순으로 정렬된 기록 (날짜 → 그날 도달한 페이지).
   final Map<DateKey, int> logs;
 
@@ -48,6 +52,7 @@ class Book {
     int? dailyTarget,
     DateKey? Function()? dueDate,
     DateKey? Function()? finishedAt,
+    DateKey? Function()? stoppedAt,
     Map<DateKey, int>? logs,
   }) {
     return Book(
@@ -59,6 +64,7 @@ class Book {
       dailyTarget: dailyTarget ?? this.dailyTarget,
       dueDate: dueDate != null ? dueDate() : this.dueDate,
       finishedAt: finishedAt != null ? finishedAt() : this.finishedAt,
+      stoppedAt: stoppedAt != null ? stoppedAt() : this.stoppedAt,
       logs: logs ?? this.logs,
     );
   }

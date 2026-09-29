@@ -133,6 +133,29 @@ void main() {
       expect(items.map((i) => i.belowTarget), [true, true]); // A 8<10, B 10<20
     });
 
+    test('완독한 날은 목표보다 적게 읽어도 미달이 아니다', () {
+      // 목표 10, 295p에서 300p(마지막)까지 5p만 읽고 완독
+      final b = book(start: 290, startDate: '2026-09-20', logs: {'2026-09-23': 295, '2026-09-24': 300});
+      expect(ReadingCalc.isBelowTargetOn(b, d('2026-09-23')), isTrue); // 5p, 아직 완독 전
+      expect(ReadingCalc.isBelowTargetOn(b, d('2026-09-24')), isFalse); // 5p지만 완독
+      expect(ReadingCalc.isBelowTargetOn(b, d('2026-09-22')), isFalse); // 기록 없음
+
+      final items = ReadingCalc.dailyTotals([b]);
+      expect(items[d('2026-09-23')]!.items.single.belowTarget, isTrue);
+      expect(items[d('2026-09-24')]!.items.single.belowTarget, isFalse);
+    });
+
+    test('독서 중단: 상태·체크리스트, 읽은 만큼은 유지', () {
+      final b = book(start: 0, startDate: '2026-09-20', logs: {'2026-09-22': 30, '2026-09-24': 40})
+          .copyWith(stoppedAt: () => d('2026-09-24'));
+      expect(ReadingCalc.status(b, d('2026-09-29')), BookStatus.stopped);
+      expect(ReadingCalc.isOnChecklist(b, d('2026-09-23')), isTrue); // 중단 전
+      expect(ReadingCalc.isOnChecklist(b, d('2026-09-24')), isTrue); // 중단일, 그날 기록 있음
+      expect(ReadingCalc.isOnChecklist(b, d('2026-09-25')), isFalse); // 중단 후
+      expect(ReadingCalc.currentPage(b), 40);
+      expect(ReadingCalc.dailyTotals([b])[d('2026-09-24')]!.pages, 10);
+    });
+
     test('streak: 오늘 기록 없으면 어제부터', () {
       final b = book(start: 0, startDate: '2026-09-20', logs: {'2026-09-22': 10, '2026-09-23': 20});
       final totals = ReadingCalc.dailyTotals([b]);

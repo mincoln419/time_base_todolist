@@ -39,6 +39,14 @@ void main() {
       expect(check('2026-09-24', 301), isA<OverTotalPages>());
     });
 
+    test('중단한 책은 중단일 이후 새 기록 거부, 이전 날짜·기존 기록 수정은 허용', () {
+      final stopped = b.copyWith(stoppedAt: () => d('2026-09-24'));
+      expect(LogValidator.validate(stopped, d('2026-09-23'), 140, today: today), isNull);
+      expect(LogValidator.validate(stopped, d('2026-09-24'), 160, today: today), isNull); // 그날 기록 있음
+      final stoppedEarly = b.copyWith(stoppedAt: () => d('2026-09-23'));
+      expect(LogValidator.validate(stoppedEarly, d('2026-09-23'), 140, today: today), isA<StoppedBook>());
+    });
+
     test('4. 소급 기록이 이후 기록보다 크면 거부', () {
       expect((check('2026-09-23', 151) as OverNext).nextPage, 150);
     });

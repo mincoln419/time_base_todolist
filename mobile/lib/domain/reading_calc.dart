@@ -2,18 +2,28 @@ import 'book.dart';
 import 'date_key.dart';
 
 /// 책의 진행 상태.
-enum BookStatus { planned, reading, done }
+enum BookStatus { planned, reading, done, stopped }
 
 /// 잔디 한 칸에 들어가는 책별 내역.
 class DailyItem {
-  const DailyItem({required this.bookId, required this.title, required this.pages, required this.target});
+  const DailyItem({
+    required this.bookId,
+    required this.title,
+    required this.pages,
+    required this.target,
+    required this.finished,
+  });
 
   final String bookId;
   final String title;
   final int pages;
   final int target;
 
-  bool get belowTarget => pages < target;
+  /// 그날 마지막 페이지까지 읽었는지.
+  final bool finished;
+
+  /// 완독한 날은 남은 페이지가 목표보다 적었을 뿐이라 미달로 보지 않는다.
+  bool get belowTarget => pages < target && !finished;
 }
 
 /// 하루치 합계 (전체 책).
@@ -56,8 +66,16 @@ abstract final class ReadingCalc {
 
   static bool hasLogOn(Book book, DateKey date) => book.logs.containsKey(date);
 
+  /// 그날 읽은 양이 하루 목표보다 적은지. 기록이 없거나, 그날 마지막 페이지까지 읽어 완독했으면 false.
+  static bool isBelowTargetOn(Book book, DateKey date) {
+    final pageTo = book.logs[date];
+    if (pageTo == null || pageTo >= book.totalPages) return false;
+    return pagesOn(book, date) < book.dailyTarget;
+  }
+
   static BookStatus status(Book book, DateKey today) {
     if (book.finishedAt != null) return BookStatus.done;
+    if (book.stoppedAt != null) return BookStatus.stopped;
     if (book.startDate > today) return BookStatus.planned;
     return BookStatus.reading;
   }
@@ -167,7 +185,13 @@ abstract final class ReadingCalc {
         prev = entry.value;
         final total = totals.putIfAbsent(entry.key, DailyTotal.new);
         total.pages += pages;
-        total.items.add(DailyItem(bookId: book.id, title: book.title, pages: pages, target: book.dailyTarget));
+        total.items.add(DailyItem(
+          bookId: book.id,
+          title: book.title,
+          pages: pages,
+          target: book.dailyTarget,
+          finished: entry.value >= book.totalPages,
+        ));
       }
     }
     return totals;
@@ -184,9 +208,14 @@ abstract final class ReadingCalc {
     return count;
   }
 
-  /// [date]의 체크리스트에 나오는 책 — 시작했고, 그 날짜 이전에 완독하지 않은 책.
+  /// [date]의 체크리스트에 나오는 책 — 시작했고, 그 전에 완독하지 않았고, 중단일 전인 책.
+  /// 중단한 날에 이미 기록이 있으면 그 기록은 계속 보여준다(수정·확인용).
   static bool isOnChecklist(Book book, DateKey date) {
+    if (book.startDate > date) return false;
     final finished = book.finishedAt;
-    return book.startDate <= date && (finished == null || finished >= date);
+    if (finished != null && finished < date) return false;
+    final stopped = book.stoppedAt;
+    if (stopped != null && date >= stopped && !hasLogOn(book, date)) return false;
+    return true;
   }
 }

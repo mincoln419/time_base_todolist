@@ -133,6 +133,7 @@ users/{uid}/books/{bookId}               # bookId = Firestore 자동 ID
   due_date: string 'YYYY-MM-DD' | null   # ≥ start_date
   logs: map<'YYYY-MM-DD', int>           # 날짜 → 그날 도달한 페이지 (page_to)
   finished_at: string 'YYYY-MM-DD' | null
+  stopped_at: string 'YYYY-MM-DD' | null  # 독서 중단일 (2026-09-29 추가, 웹과 동일)
   created_at: Timestamp
   updated_at: Timestamp
 ```
@@ -193,6 +194,8 @@ class Book {
 | `targetForDueDate(...)` | ceil(남은 페이지 / (from ~ dueDate 일수)), from = 오늘(오늘 기록 있으면 내일, planned면 startDate), 지났으면 null |
 | `missedDays(book, today)` | startDate ~ 어제(완독일 이전) 중 기록 없는 날 수 |
 | `isOverdue(book, today)` | dueDate != null && eta > dueDate |
+| `isBelowTargetOn(book, date)` | 그날 읽은 양 < 하루 목표. 단 그날 마지막 페이지까지 읽어 완독했으면 미달 아님 (2026-09-29) |
+| `status` 중단 | stoppedAt 있으면 stopped (완독 다음 우선). 체크리스트·남은 책에서 빠지고 "중단" 목록에 표시, 중단일 이후 새 기록은 `StoppedBook` 거부, "다시 읽기"로 해제 (2026-09-29) |
 | `dailyTotals(books)` | Map<DateKey, {pages, items:[{bookId, title, pages, target}]}> |
 | `streak(totals, today)` | 오늘 기록 없으면 어제부터 연속 일수 |
 | `computeFinishedAt(book)` | logs 오름차순에서 page_to ≥ total인 첫 날짜, 없으면 startPage ≥ total ? startDate : null |
@@ -423,6 +426,13 @@ mobile/
 - Android `productFlavors { dev, prod }`, iOS 스킴/빌드 구성 `Debug-dev`/`Release-prod` 등으로 번들 ID·설정 파일 분리.
 - 실행: `flutter run --flavor dev -t lib/main_dev.dart`, 출시: `flutter build appbundle --flavor prod`, `flutter build ipa --flavor prod`.
 
+### 10.2.1 최소 OS (2026-09-26 확정)
+
+- iOS **15.0** — FlutterFire(cloud_firestore·firebase_auth) podspec 요구사항. Podfile·Xcode 프로젝트에 반영.
+- Android는 Flutter 기본 minSdk 유지(빌드 확인됨).
+- 참고: Firebase Apple SDK의 CocoaPods 배포가 2026-10 이후 중단 예정 → 출시 전 Swift Package Manager 전환 검토(M3).
+- 환경: dev/prod 분리 없이 `readinglog-efa02` 하나로 개발(2026-09-25 사용자 결정), 분리는 출시 직전에.
+
 ### 10.3 Firebase 설정 파일
 
 - `flutterfire configure`로 환경별 `firebase_options_*.dart`, `google-services.json`, `GoogleService-Info.plist` 생성. 모두 `.gitignore`(mobile/.gitignore에 반영됨) — 새 환경 세팅 방법은 `mobile/README.md`에 문서화.
@@ -488,8 +498,8 @@ mobile/
 2. [~] M0: `flutterfire configure` 완료(프로젝트 `readinglog-efa02`, 2026-09-25), `mobile/README.md` 세팅 문서 — dev/prod 분리·flavor는 사용자 결정 대기
 3. [x] M1: `domain/` (DateKey, Book, ReadingCalc, Validators) + §11.1 테스트 — 2026-09-25, 28개 통과
 4. [x] M1: `firebase/firestore.rules` + §11.2 규칙 테스트 — 2026-09-25, 21건 통과
-5. [ ] M2: `data/` 리포지토리, Auth(Apple/Google), 라우터·셸
-6. [ ] M2: 오늘의 독서 → 책 목록/폼 → 잔디
+5. [x] M2: `data/` 리포지토리, Auth(Apple/Google), 라우터·셸 — 2026-09-26 (리포지토리 테스트 5건, `test/repository/`)
+6. [x] M2: 오늘의 독서 → 책 목록/폼 → 잔디, 설정(기본 하루 목표·잔디 기간·로그아웃) — 2026-09-26, Android/iOS 디버그 빌드 확인. 실기기 로그인은 콘솔 Google/Apple 설정 후 확인 필요
 7. [ ] M3: 설정, 리마인더, 계정 삭제, 오프라인 표시, 다크 모드·접근성, Crashlytics/Analytics
 8. [ ] M4: TestFlight/Play 비공개 테스트, 피드백 반영
 9. [ ] M5: 스토어 등록·심사·출시
