@@ -176,7 +176,7 @@ class _ChecklistTileState extends ConsumerState<ChecklistTile> {
                         child: Text(l10n.cancelButton),
                       ),
                   ],
-                  if (checked && read < _book.dailyTarget)
+                  if (ReadingCalc.isBelowTargetOn(_book, widget.date))
                     Chip(label: Text(l10n.belowTarget), visualDensity: VisualDensity.compact),
                   if (logged == null || logged < _book.totalPages)
                     OutlinedButton(onPressed: _confirmFinish, child: Text(l10n.finishButton)),

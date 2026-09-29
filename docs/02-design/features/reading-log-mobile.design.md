@@ -193,6 +193,7 @@ class Book {
 | `targetForDueDate(...)` | ceil(남은 페이지 / (from ~ dueDate 일수)), from = 오늘(오늘 기록 있으면 내일, planned면 startDate), 지났으면 null |
 | `missedDays(book, today)` | startDate ~ 어제(완독일 이전) 중 기록 없는 날 수 |
 | `isOverdue(book, today)` | dueDate != null && eta > dueDate |
+| `isBelowTargetOn(book, date)` | 그날 읽은 양 < 하루 목표. 단 그날 마지막 페이지까지 읽어 완독했으면 미달 아님 (2026-09-29) |
 | `dailyTotals(books)` | Map<DateKey, {pages, items:[{bookId, title, pages, target}]}> |
 | `streak(totals, today)` | 오늘 기록 없으면 어제부터 연속 일수 |
 | `computeFinishedAt(book)` | logs 오름차순에서 page_to ≥ total인 첫 날짜, 없으면 startPage ≥ total ? startDate : null |
