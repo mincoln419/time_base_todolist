@@ -1,6 +1,6 @@
 const express = require('express');
 const { firestore } = require('../db/firestore');
-const { READING_BOOKS, READING_LOGS, DAILY_NOTES, COUNTER_KEYS } = require('../db/collections');
+const { READING_BOOKS, READING_LOGS, READING_SETTINGS, DAILY_NOTES, COUNTER_KEYS } = require('../db/collections');
 const { nowString, nextId, NotFoundError, asyncHandler, exceedsTextFieldLimit } = require('../db/util');
 const { extractNoteTags } = require('../services/noteTags');
 
@@ -8,6 +8,10 @@ const router = express.Router();
 const booksRef = firestore.collection(READING_BOOKS);
 const logsRef = firestore.collection(READING_LOGS);
 const notesRef = firestore.collection(DAILY_NOTES);
+// 독서기록 설정(단일 사용자 앱이라 문서 1건). 값은 사용자가 설정에서 바꾸며, 아래는 문서가 없을 때의 초기값이다 —
+// 하루 목표 10은 기존 기본값, 잔디 53주는 기존 1년 표시와 같다.
+const settingsRef = firestore.collection(READING_SETTINGS).doc('default');
+const INITIAL_SETTINGS = { id: 'default', default_daily_target: 10, heatmap_weeks: 53 };
 const NOTE_SOURCE = 'reading'; // 독서기록에서 작성한 데일리노트 표시(필드값)
 const NOTE_SOURCE_TAG = '오늘의독서'; // 데일리노트에서 태그로 찾을 수 있도록 넣는 출처 키워드
 const DEFAULT_DAILY_TARGET = 10;
@@ -99,6 +103,27 @@ function validateBookFields(body, current) {
 
   return { title, total_pages: total, start_page: start, start_date: startDate, daily_target: target, due_date: dueDate };
 }
+
+// GET /api/reading/settings - 독서기록 설정 (새 책 기본 하루 목표, 잔디 표시 주 수)
+router.get('/settings', asyncHandler(async (req, res) => {
+  const snap = await settingsRef.get();
+  res.json({ ...INITIAL_SETTINGS, ...(snap.exists ? snap.data() : {}) });
+}));
+
+// PUT /api/reading/settings - 설정 저장 (보낸 항목만 갱신)
+router.put('/settings', asyncHandler(async (req, res) => {
+  const snap = await settingsRef.get();
+  const current = { ...INITIAL_SETTINGS, ...(snap.exists ? snap.data() : {}) };
+  const next = { ...current };
+  for (const key of ['default_daily_target', 'heatmap_weeks']) {
+    if (req.body?.[key] === undefined) continue;
+    const value = Number(req.body[key]);
+    if (!Number.isInteger(value) || value < 1) throw badRequest('설정 값은 1 이상의 정수로 입력해주세요.');
+    next[key] = value;
+  }
+  await settingsRef.set(next);
+  res.json(next);
+}));
 
 // GET /api/reading/books - 전체 책 + 기록 (데이터 양이 적어 전체 로드)
 router.get('/books', asyncHandler(async (req, res) => {

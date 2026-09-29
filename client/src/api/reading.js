@@ -51,3 +51,13 @@ export async function createReadingNote(bookId, payload) {
   const res = await fetch(`${BASE}/books/${bookId}/notes`, jsonRequest('POST', payload));
   return readJsonOrThrow(res, '독서 메모 저장 실패');
 }
+
+export async function fetchReadingSettings() {
+  const res = await fetch(`${BASE}/settings`);
+  return readJsonOrThrow(res, '독서기록 설정 조회 실패');
+}
+
+export async function saveReadingSettings(payload) {
+  const res = await fetch(`${BASE}/settings`, jsonRequest('PUT', payload));
+  return readJsonOrThrow(res, '독서기록 설정 저장 실패');
+}

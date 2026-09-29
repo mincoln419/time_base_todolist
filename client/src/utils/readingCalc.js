@@ -1,7 +1,7 @@
 // 독서기록 파생값 계산 — 서버는 page_to만 저장하고 나머지는 모두 여기서 계산한다.
 // 날짜는 항상 로컬 기준 YYYY-MM-DD 문자열로 다룬다(toISOString 사용 금지 — UTC로 하루 밀림).
 
-export const DAILY_TARGET = 10; // 새 책 폼의 하루 목표 기본값(책마다 수정 가능)
+export const DAILY_TARGET = 10; // 설정을 아직 불러오지 못했을 때만 쓰는 대체값 — 실제 기본값은 독서기록 설정(서버)
 
 function pad(n) {
   return String(n).padStart(2, '0');

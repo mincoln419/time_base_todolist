@@ -23,8 +23,8 @@ import {
 const INPUT = 'px-3 py-2 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300';
 const PAGE_INPUT = 'w-20 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-300';
 
-function createEmptyBookForm(today) {
-  return { title: '', start_date: today, start_page: '0', total_pages: '', daily_target: String(DAILY_TARGET), due_date: '' };
+function createEmptyBookForm(today, dailyTarget = DAILY_TARGET) {
+  return { title: '', start_date: today, start_page: '0', total_pages: '', daily_target: String(dailyTarget), due_date: '' };
 }
 
 function toBookForm(book) {
@@ -51,7 +51,8 @@ function toPayload(form) {
 
 function dDay(today, date) {
   const diff = daysBetween(today, date);
-  return diff >= 0 ? `D-${diff}` : `D+${-diff}`;
+  if (diff === 0) return 'D-DAY';
+  return diff > 0 ? `D-${diff}` : `D+${-diff}`;
 }
 
 function percent(book) {
@@ -424,13 +425,67 @@ function BookRow({ book, today, onSave, onRemove }) {
   );
 }
 
+// 독서기록 설정 — 새 책 기본 하루 목표, 잔디 표시 기간 (값을 코드에 고정하지 않고 사용자가 정한다)
+function ReadingSettings({ settings, onSave }) {
+  const [form, setForm] = useState({
+    default_daily_target: String(settings.default_daily_target),
+    heatmap_weeks: String(settings.heatmap_weeks),
+  });
+
+  const save = async (e) => {
+    e.preventDefault();
+    try {
+      await onSave({
+        default_daily_target: Number(form.default_daily_target),
+        heatmap_weeks: Number(form.heatmap_weeks),
+      });
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const set = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  const changed =
+    Number(form.default_daily_target) !== settings.default_daily_target ||
+    Number(form.heatmap_weeks) !== settings.heatmap_weeks;
+
+  return (
+    <details className="bg-white border rounded p-4">
+      <summary className="font-semibold text-gray-800 cursor-pointer">독서기록 설정</summary>
+      <form onSubmit={save} className="mt-3 grid grid-cols-2 gap-2 items-end">
+        <label className="text-xs text-gray-500">
+          새 책 기본 하루 목표 (p)
+          <input type="number" min="1" value={form.default_daily_target} onChange={set('default_daily_target')} className={'mt-1 w-full ' + INPUT} />
+        </label>
+        <label className="text-xs text-gray-500">
+          잔디 표시 기간 (주)
+          <input type="number" min="1" value={form.heatmap_weeks} onChange={set('heatmap_weeks')} className={'mt-1 w-full ' + INPUT} />
+        </label>
+        <button
+          type="submit"
+          disabled={!changed}
+          className="col-span-2 px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-40"
+        >
+          저장
+        </button>
+      </form>
+    </details>
+  );
+}
+
 export default function ReadingLog() {
-  const { books, loaded, addBook, updateBook, removeBook, checkLog, uncheckLog, addNote } = useReading();
+  const { books, settings, loaded, addBook, updateBook, removeBook, checkLog, uncheckLog, addNote, saveSettings } = useReading();
   const today = useToday();
   const [selectedDate, setSelectedDate] = useState(today);
   const [bookForm, setBookForm] = useState(() => createEmptyBookForm(today));
   const [finishTarget, setFinishTarget] = useState(null); // 완독 확인 모달 대상 { book, date }
   const [noteTarget, setNoteTarget] = useState(null); // 독서 메모 모달 대상 { book, date }
+
+  // 설정을 불러오면, 아직 입력을 시작하지 않은 새 책 폼의 하루 목표를 설정 기본값으로 맞춘다
+  const defaultDailyTarget = settings?.default_daily_target ?? DAILY_TARGET;
+  useEffect(() => {
+    setBookForm((prev) => (prev.title ? prev : { ...prev, daily_target: String(defaultDailyTarget) }));
+  }, [defaultDailyTarget]);
 
   // 자정이 지나면 선택 날짜도 새 오늘로 넘어간다(지난 날짜를 보고 있던 경우는 유지)
   useEffect(() => {
@@ -464,20 +519,26 @@ export default function ReadingLog() {
     e.preventDefault();
     try {
       await addBook(toPayload(bookForm));
-      setBookForm(createEmptyBookForm(today));
+      setBookForm(createEmptyBookForm(today, defaultDailyTarget));
     } catch (err) {
       alert(err.message);
     }
   };
 
-  if (!loaded) {
+  if (!loaded || !settings) {
     return <div className="p-4 text-sm text-gray-400">불러오는 중...</div>;
   }
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto bg-gray-50">
       <div className="max-w-7xl mx-auto p-4 space-y-4">
-        <ReadingHeatmap totals={totals} today={today} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+        <ReadingHeatmap
+          totals={totals}
+          today={today}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          weekCount={settings.heatmap_weeks}
+        />
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4">
           <section className="bg-white border rounded p-4">
@@ -566,6 +627,8 @@ export default function ReadingLog() {
                 ))}
               </div>
             </details>
+
+            <ReadingSettings settings={settings} onSave={saveSettings} />
           </aside>
         </div>
       </div>
