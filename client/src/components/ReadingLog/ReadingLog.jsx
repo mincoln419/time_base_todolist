@@ -12,6 +12,7 @@ import {
   daysBetween,
   daysLeft,
   estimateFinish,
+  isBelowTargetOn,
   logOn,
   missedDays,
   pageBefore,
@@ -195,7 +196,7 @@ function ChecklistRow({ book, date, onCheck, onUncheck, onFinish, onMemo }) {
             >
               {before} → {log.page_to}p <span className="text-emerald-600">(+{read})</span>
             </button>
-            {read < book.daily_target && (
+            {isBelowTargetOn(book, date) && (
               <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 text-amber-700">목표 미달</span>
             )}
             {log.page_to < book.total_pages && <FinishButton book={book} date={date} onFinish={onFinish} />}

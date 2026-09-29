@@ -53,6 +53,13 @@ export function pagesOn(book, date) {
   return log ? log.page_to - pageBefore(book, date) : 0;
 }
 
+// 그날 읽은 양이 하루 목표보다 적은지 — 그날 마지막 페이지까지 읽어 완독했으면 미달이 아니다
+export function isBelowTargetOn(book, date) {
+  const log = logOn(book, date);
+  if (!log || log.page_to >= book.total_pages) return false;
+  return pagesOn(book, date) < book.daily_target;
+}
+
 export function bookStatus(book, today) {
   if (book.finished_at) return 'done';
   if (book.start_date > today) return 'planned';
@@ -102,7 +109,8 @@ export function dailyTotals(books) {
       prev = log.page_to;
       const entry = totals.get(log.date) ?? { pages: 0, items: [] };
       entry.pages += pages;
-      entry.items.push({ title: book.title, pages, target: book.daily_target });
+      const belowTarget = pages < book.daily_target && log.page_to < book.total_pages;
+      entry.items.push({ title: book.title, pages, target: book.daily_target, belowTarget });
       totals.set(log.date, entry);
     }
   }

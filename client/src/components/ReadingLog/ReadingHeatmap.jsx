@@ -17,7 +17,7 @@ function levelClass(pages) {
 function tooltip(date, entry) {
   if (!entry) return `${date} · 기록 없음`;
   const detail = entry.items
-    .map((item) => `${item.title} ${item.pages}p${item.pages < item.target ? `(목표 ${item.target}p 미달)` : ''}`)
+    .map((item) => `${item.title} ${item.pages}p${item.belowTarget ? `(목표 ${item.target}p 미달)` : ''}`)
     .join(', ');
   return `${date} · ${entry.pages}p\n${detail}`;
 }
