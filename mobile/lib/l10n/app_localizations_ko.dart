@@ -123,6 +123,25 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get statusStopped => '중단';
+
+  @override
+  String booksStopped(int count) {
+    return '중단 ($count)';
+  }
+
+  @override
+  String get stopReading => '중단';
+
+  @override
+  String get resumeReading => '다시 읽기';
+
+  @override
+  String bookStoppedRange(String start, String end) {
+    return '$start ~ $end 중단';
+  }
+
+  @override
   String get booksEmpty => '읽는 중이거나 읽을 예정인 책이 없어요';
 
   @override
@@ -383,6 +402,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String errOverNext(int page) {
     return '이후 기록(${page}p)보다 클 수 없어요';
   }
+
+  @override
+  String get errStoppedBook => '중단한 책은 중단일 이후로 기록할 수 없어요. 다시 읽기로 바꿔 주세요';
 
   @override
   String errSaveFailed(String error) {

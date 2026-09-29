@@ -39,10 +39,12 @@ class BooksScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text(error.toString())),
         data: (snap) {
-          final remaining = snap.books.where((b) => ReadingCalc.status(b, today) != BookStatus.done).toList()
+          List<Book> withStatus(Set<BookStatus> statuses) =>
+              snap.books.where((b) => statuses.contains(ReadingCalc.status(b, today))).toList();
+          final remaining = withStatus({BookStatus.reading, BookStatus.planned})
             ..sort((a, b) => _remainingOrder(a, b, today));
-          final finished = snap.books.where((b) => ReadingCalc.status(b, today) == BookStatus.done).toList()
-            ..sort((a, b) => b.finishedAt!.compareTo(a.finishedAt!));
+          final finished = withStatus({BookStatus.done})..sort((a, b) => b.finishedAt!.compareTo(a.finishedAt!));
+          final stopped = withStatus({BookStatus.stopped})..sort((a, b) => b.stoppedAt!.compareTo(a.stoppedAt!));
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
@@ -56,6 +58,12 @@ class BooksScreen extends ConsumerWidget {
                   tilePadding: const EdgeInsets.symmetric(horizontal: 4),
                   title: Text(l10n.booksFinished(finished.length)),
                   children: [for (final book in finished) BookCard(book: book, today: today)],
+                ),
+              if (stopped.isNotEmpty)
+                ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                  title: Text(l10n.booksStopped(stopped.length)),
+                  children: [for (final book in stopped) BookCard(book: book, today: today)],
                 ),
             ],
           );
@@ -86,22 +94,24 @@ class _SectionHeader extends StatelessWidget {
       );
 }
 
-class BookCard extends StatelessWidget {
+class BookCard extends ConsumerWidget {
   const BookCard({super.key, required this.book, required this.today});
 
   final Book book;
   final DateKey today;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final status = ReadingCalc.status(book, today);
+    final active = status == BookStatus.reading || status == BookStatus.planned;
+    final stoppedAt = book.stoppedAt;
     final current = ReadingCalc.currentPage(book);
     final percent = (ReadingCalc.progress(book) * 100).round();
-    final eta = ReadingCalc.bookEta(book, today);
+    final eta = active ? ReadingCalc.bookEta(book, today) : null;
     final missed = status == BookStatus.reading ? ReadingCalc.missedDays(book, today) : 0;
-    final overdue = ReadingCalc.isOverdue(book, today);
+    final overdue = active && ReadingCalc.isOverdue(book, today);
     final due = book.dueDate;
     final finishedAt = book.finishedAt;
 
@@ -114,7 +124,9 @@ class BookCard extends StatelessWidget {
           formatShortDate(finishedAt),
           book.startDate.daysUntil(finishedAt) + 1,
         ),
-      if (status != BookStatus.done) ...[
+      if (status == BookStatus.stopped && stoppedAt != null)
+        l10n.bookStoppedRange(formatShortDate(book.startDate), formatShortDate(stoppedAt)),
+      if (active) ...[
         l10n.bookDailyTarget(book.dailyTarget),
         l10n.bookDaysLeft(ReadingCalc.bookDaysLeft(book)),
         if (eta != null) l10n.bookEta(formatShortDate(eta)),
@@ -133,18 +145,34 @@ class BookCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  if (status == BookStatus.planned) ...[
-                    Chip(label: Text(l10n.statusPlanned), visualDensity: VisualDensity.compact),
+                  if (status == BookStatus.planned || status == BookStatus.stopped) ...[
+                    Chip(
+                      label: Text(status == BookStatus.planned ? l10n.statusPlanned : l10n.statusStopped),
+                      visualDensity: VisualDensity.compact,
+                    ),
                     const SizedBox(width: 8),
                   ],
                   Expanded(child: Text(book.title, style: theme.textTheme.titleMedium)),
+                  if (status != BookStatus.done)
+                    TextButton(
+                      onPressed: () {
+                        final repo = ref.read(bookRepositoryProvider);
+                        if (repo == null) return;
+                        final write = repo.setStopped(book, stopped: status != BookStatus.stopped, today: today);
+                        reportWriteErrors(write, l10n);
+                      },
+                      child: Text(status == BookStatus.stopped ? l10n.resumeReading : l10n.stopReading),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
-              LinearProgressIndicator(value: ReadingCalc.progress(book).clamp(0, 1).toDouble()),
+              LinearProgressIndicator(
+                value: ReadingCalc.progress(book).clamp(0, 1).toDouble(),
+                color: status == BookStatus.stopped ? theme.colorScheme.outline : null,
+              ),
               const SizedBox(height: 8),
               Text(details.join(' · '), style: theme.textTheme.bodySmall),
-              if (status != BookStatus.done && due != null)
+              if (active && due != null)
                 Text(
                   [l10n.bookDue(formatShortDate(due), formatDday(today, due)), if (overdue) l10n.overdueWarning].join(' · '),
                   style: theme.textTheme.bodySmall?.copyWith(color: overdue ? theme.colorScheme.error : null),

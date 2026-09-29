@@ -298,6 +298,36 @@ abstract class AppLocalizations {
   /// **'완독 ({count})'**
   String booksFinished(int count);
 
+  /// No description provided for @statusStopped.
+  ///
+  /// In ko, this message translates to:
+  /// **'중단'**
+  String get statusStopped;
+
+  /// No description provided for @booksStopped.
+  ///
+  /// In ko, this message translates to:
+  /// **'중단 ({count})'**
+  String booksStopped(int count);
+
+  /// No description provided for @stopReading.
+  ///
+  /// In ko, this message translates to:
+  /// **'중단'**
+  String get stopReading;
+
+  /// No description provided for @resumeReading.
+  ///
+  /// In ko, this message translates to:
+  /// **'다시 읽기'**
+  String get resumeReading;
+
+  /// No description provided for @bookStoppedRange.
+  ///
+  /// In ko, this message translates to:
+  /// **'{start} ~ {end} 중단'**
+  String bookStoppedRange(String start, String end);
+
   /// No description provided for @booksEmpty.
   ///
   /// In ko, this message translates to:
@@ -711,6 +741,12 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'이후 기록({page}p)보다 클 수 없어요'**
   String errOverNext(int page);
+
+  /// No description provided for @errStoppedBook.
+  ///
+  /// In ko, this message translates to:
+  /// **'중단한 책은 중단일 이후로 기록할 수 없어요. 다시 읽기로 바꿔 주세요'**
+  String get errStoppedBook;
 
   /// No description provided for @errSaveFailed.
   ///

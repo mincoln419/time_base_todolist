@@ -32,7 +32,7 @@ service cloud.firestore {
         function validBook(d) {
           return d.keys().hasOnly([
               'title', 'total_pages', 'start_page', 'start_date', 'daily_target',
-              'due_date', 'logs', 'finished_at', 'created_at', 'updated_at'])
+              'due_date', 'logs', 'finished_at', 'stopped_at', 'created_at', 'updated_at'])
             && d.keys().hasAll(['title', 'total_pages', 'start_page', 'start_date', 'daily_target', 'logs'])
             && d.title is string && d.title.size() > 0 && withinTextLimit(d.title)
             && d.total_pages is int && d.total_pages >= 1
@@ -41,6 +41,7 @@ service cloud.firestore {
             && isDateKey(d.start_date)
             && (d.get('due_date', null) == null || (isDateKey(d.due_date) && d.due_date >= d.start_date))
             && (d.get('finished_at', null) == null || isDateKey(d.finished_at))
+            && (d.get('stopped_at', null) == null || isDateKey(d.stopped_at))
             && d.logs is map;
         }
 

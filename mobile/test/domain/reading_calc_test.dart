@@ -145,6 +145,17 @@ void main() {
       expect(items[d('2026-09-24')]!.items.single.belowTarget, isFalse);
     });
 
+    test('독서 중단: 상태·체크리스트, 읽은 만큼은 유지', () {
+      final b = book(start: 0, startDate: '2026-09-20', logs: {'2026-09-22': 30, '2026-09-24': 40})
+          .copyWith(stoppedAt: () => d('2026-09-24'));
+      expect(ReadingCalc.status(b, d('2026-09-29')), BookStatus.stopped);
+      expect(ReadingCalc.isOnChecklist(b, d('2026-09-23')), isTrue); // 중단 전
+      expect(ReadingCalc.isOnChecklist(b, d('2026-09-24')), isTrue); // 중단일, 그날 기록 있음
+      expect(ReadingCalc.isOnChecklist(b, d('2026-09-25')), isFalse); // 중단 후
+      expect(ReadingCalc.currentPage(b), 40);
+      expect(ReadingCalc.dailyTotals([b])[d('2026-09-24')]!.pages, 10);
+    });
+
     test('streak: 오늘 기록 없으면 어제부터', () {
       final b = book(start: 0, startDate: '2026-09-20', logs: {'2026-09-22': 10, '2026-09-23': 20});
       final totals = ReadingCalc.dailyTotals([b]);

@@ -133,6 +133,7 @@ users/{uid}/books/{bookId}               # bookId = Firestore 자동 ID
   due_date: string 'YYYY-MM-DD' | null   # ≥ start_date
   logs: map<'YYYY-MM-DD', int>           # 날짜 → 그날 도달한 페이지 (page_to)
   finished_at: string 'YYYY-MM-DD' | null
+  stopped_at: string 'YYYY-MM-DD' | null  # 독서 중단일 (2026-09-29 추가, 웹과 동일)
   created_at: Timestamp
   updated_at: Timestamp
 ```
@@ -194,6 +195,7 @@ class Book {
 | `missedDays(book, today)` | startDate ~ 어제(완독일 이전) 중 기록 없는 날 수 |
 | `isOverdue(book, today)` | dueDate != null && eta > dueDate |
 | `isBelowTargetOn(book, date)` | 그날 읽은 양 < 하루 목표. 단 그날 마지막 페이지까지 읽어 완독했으면 미달 아님 (2026-09-29) |
+| `status` 중단 | stoppedAt 있으면 stopped (완독 다음 우선). 체크리스트·남은 책에서 빠지고 "중단" 목록에 표시, 중단일 이후 새 기록은 `StoppedBook` 거부, "다시 읽기"로 해제 (2026-09-29) |
 | `dailyTotals(books)` | Map<DateKey, {pages, items:[{bookId, title, pages, target}]}> |
 | `streak(totals, today)` | 오늘 기록 없으면 어제부터 연속 일수 |
 | `computeFinishedAt(book)` | logs 오름차순에서 page_to ≥ total인 첫 날짜, 없으면 startPage ≥ total ? startDate : null |

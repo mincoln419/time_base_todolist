@@ -29,6 +29,7 @@ String validationMessage(ValidationError error, AppLocalizations l10n) => switch
       TotalBelowLogs(:final lastLoggedPage) => l10n.errTotalBelowLogs(lastLoggedPage),
       StartDateAfterLogs(:final firstLoggedDate) => l10n.errStartDateAfterLogs(formatShortDate(firstLoggedDate)),
       LogDateOutOfRange() => l10n.errLogDate,
+      StoppedBook() => l10n.errStoppedBook,
       NotAfterPrevious(:final previousPage) => l10n.errNotAfterPrevious(previousPage),
       OverTotalPages(:final totalPages) => l10n.errOverTotal(totalPages),
       OverNext(:final nextPage) => l10n.errOverNext(nextPage),

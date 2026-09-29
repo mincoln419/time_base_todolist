@@ -2,7 +2,7 @@ import 'book.dart';
 import 'date_key.dart';
 
 /// 책의 진행 상태.
-enum BookStatus { planned, reading, done }
+enum BookStatus { planned, reading, done, stopped }
 
 /// 잔디 한 칸에 들어가는 책별 내역.
 class DailyItem {
@@ -75,6 +75,7 @@ abstract final class ReadingCalc {
 
   static BookStatus status(Book book, DateKey today) {
     if (book.finishedAt != null) return BookStatus.done;
+    if (book.stoppedAt != null) return BookStatus.stopped;
     if (book.startDate > today) return BookStatus.planned;
     return BookStatus.reading;
   }
@@ -207,9 +208,14 @@ abstract final class ReadingCalc {
     return count;
   }
 
-  /// [date]의 체크리스트에 나오는 책 — 시작했고, 그 날짜 이전에 완독하지 않은 책.
+  /// [date]의 체크리스트에 나오는 책 — 시작했고, 그 전에 완독하지 않았고, 중단일 전인 책.
+  /// 중단한 날에 이미 기록이 있으면 그 기록은 계속 보여준다(수정·확인용).
   static bool isOnChecklist(Book book, DateKey date) {
+    if (book.startDate > date) return false;
     final finished = book.finishedAt;
-    return book.startDate <= date && (finished == null || finished >= date);
+    if (finished != null && finished < date) return false;
+    final stopped = book.stoppedAt;
+    if (stopped != null && date >= stopped && !hasLogOn(book, date)) return false;
+    return true;
   }
 }

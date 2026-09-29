@@ -85,6 +85,28 @@
       }
     }
   },
+  "statusStopped": "중단",
+  "booksStopped": "중단 ({count})",
+  "@booksStopped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "stopReading": "중단",
+  "resumeReading": "다시 읽기",
+  "bookStoppedRange": "{start} ~ {end} 중단",
+  "@bookStoppedRange": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "booksEmpty": "읽는 중이거나 읽을 예정인 책이 없어요",
   "statusPlanned": "예정",
   "bookProgress": "{current} / {total}p ({percent}%)",
@@ -366,6 +388,7 @@
     }
   },
   "errOverNext": "이후 기록({page}p)보다 클 수 없어요",
+  "errStoppedBook": "중단한 책은 중단일 이후로 기록할 수 없어요. 다시 읽기로 바꿔 주세요",
   "@errOverNext": {
     "placeholders": {
       "page": {
