@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,23 +21,11 @@ abstract final class Routes {
   static const settings = '/settings';
 }
 
-/// 로그인 상태가 바뀌면 라우터가 redirect를 다시 평가하도록 알린다.
-class _AuthRefresh extends ChangeNotifier {
-  _AuthRefresh(Stream<Object?> stream) {
-    _sub = stream.listen((_) => notifyListeners());
-  }
-
-  late final StreamSubscription<Object?> _sub;
-
-  @override
-  void dispose() {
-    _sub.cancel();
-    super.dispose();
-  }
-}
-
 final routerProvider = Provider<GoRouter>((ref) {
-  final refresh = _AuthRefresh(ref.watch(authRepositoryProvider).authStateChanges());
+  // redirect가 읽는 authStateProvider 자체의 변화에 맞춰 다시 평가한다. 별도 Auth 스트림을 구독하면
+  // 그 이벤트 시점에 provider가 아직 갱신 전이라 redirect가 로딩 상태를 보고 아무것도 하지 않는다.
+  final refresh = ValueNotifier(0);
+  ref.listen(authStateProvider, (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
