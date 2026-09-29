@@ -8,6 +8,7 @@ import {
   fetchReadingSettings,
   putLog,
   saveReadingSettings,
+  setBookStopped,
   updateBook,
 } from '../api/reading';
 
@@ -41,6 +42,7 @@ export function useReading() {
     addBook: (payload) => reloadAfter(() => createBook(payload)),
     updateBook: (id, payload) => reloadAfter(() => updateBook(id, payload)),
     removeBook: (id) => reloadAfter(() => deleteBook(id)),
+    setStopped: (id, stopped) => reloadAfter(() => setBookStopped(id, stopped)),
     checkLog: (bookId, date, pageTo) => reloadAfter(() => putLog(bookId, date, pageTo)),
     uncheckLog: (bookId, date) => reloadAfter(() => deleteLog(bookId, date)),
     addNote: (bookId, payload) => reloadAfter(() => createReadingNote(bookId, payload)),

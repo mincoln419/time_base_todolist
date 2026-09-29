@@ -180,6 +180,21 @@ router.patch('/books/:id', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
+// PUT /api/reading/books/:id/stopped - 독서 중단/다시 읽기. 중단하면 오늘 날짜를 stopped_at에 남긴다.
+// 기록은 그대로 두어 얼마나 읽었는지는 계속 보인다.
+router.put('/books/:id/stopped', asyncHandler(async (req, res) => {
+  const ref = booksRef.doc(req.params.id);
+  const result = await firestore.runTransaction(async (tx) => {
+    const { book, logs } = await loadBookWithLogs(tx, req.params.id);
+    const stopped = !!req.body?.stopped;
+    if (stopped && book.finished_at) throw badRequest('완독한 책은 중단할 수 없습니다.');
+    const updated = { ...book, stopped_at: stopped ? (book.stopped_at || todayString()) : null, updated_at: nowString() };
+    tx.set(ref, updated);
+    return withLogs(updated, logs);
+  });
+  res.json(result);
+}));
+
 // DELETE /api/reading/books/:id - 책과 그 기록 삭제
 router.delete('/books/:id', asyncHandler(async (req, res) => {
   const ref = booksRef.doc(req.params.id);
@@ -204,6 +219,9 @@ router.put('/books/:id/logs/:date', asyncHandler(async (req, res) => {
     const { book, logs } = await loadBookWithLogs(tx, req.params.id);
     if (date < book.start_date || date > todayString()) {
       throw badRequest('시작일부터 오늘까지만 기록할 수 있습니다.');
+    }
+    if (book.stopped_at && date >= book.stopped_at && !logs.some((l) => l.date === date)) {
+      throw badRequest('중단한 책은 중단일 이후로 기록할 수 없습니다. 다시 읽기로 바꿔주세요.');
     }
 
     // 날짜순으로 페이지가 단조 증가하도록 앞뒤 기록 사이 값만 허용

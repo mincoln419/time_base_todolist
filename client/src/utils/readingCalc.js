@@ -62,6 +62,7 @@ export function isBelowTargetOn(book, date) {
 
 export function bookStatus(book, today) {
   if (book.finished_at) return 'done';
+  if (book.stopped_at) return 'stopped';
   if (book.start_date > today) return 'planned';
   return 'reading';
 }
@@ -87,6 +88,15 @@ export function bookEta(book, today) {
     startDate: book.start_date,
     readToday: !!logOn(book, today),
   }, today);
+}
+
+// 그 날짜의 체크리스트에 나오는지 — 시작했고, 그 전에 완독하지 않았고, 중단일 전이다.
+// 중단한 날에 이미 기록이 있으면 그 기록은 계속 보여준다(수정·확인용).
+export function isOnChecklist(book, date) {
+  if (book.start_date > date) return false;
+  if (book.finished_at && book.finished_at < date) return false;
+  if (book.stopped_at && date >= book.stopped_at && !logOn(book, date)) return false;
+  return true;
 }
 
 // 시작일 ~ 어제(완독일 이전) 중 기록이 없는 날 수

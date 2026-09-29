@@ -13,6 +13,7 @@ import {
   daysLeft,
   estimateFinish,
   isBelowTargetOn,
+  isOnChecklist,
   logOn,
   missedDays,
   pageBefore,
@@ -327,12 +328,13 @@ function NoteModal({ target, onClose, onSave }) {
   );
 }
 
-function BookRow({ book, today, onSave, onRemove }) {
+function BookRow({ book, today, onSave, onRemove, onStop }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(() => toBookForm(book));
   const status = bookStatus(book, today);
   const missed = status === 'reading' ? missedDays(book, today) : 0;
-  const eta = bookEta(book, today);
+  const active = status === 'reading' || status === 'planned';
+  const eta = active ? bookEta(book, today) : null;
   const overdue = !!(book.due_date && eta && eta > book.due_date);
 
   const save = async () => {
@@ -375,11 +377,14 @@ function BookRow({ book, today, onSave, onRemove }) {
             {status === 'planned' && (
               <span className="px-2 py-0.5 text-[11px] rounded bg-white border text-gray-500">예정</span>
             )}
+            {status === 'stopped' && (
+              <span className="px-2 py-0.5 text-[11px] rounded bg-white border text-gray-500">중단</span>
+            )}
             <span className="text-sm font-semibold text-gray-800 break-words">{book.title}</span>
           </div>
           <div className="mt-1 h-2 rounded bg-gray-200 overflow-hidden">
             <div
-              className={'h-full ' + (status === 'done' ? 'bg-emerald-400' : 'bg-blue-400')}
+              className={'h-full ' + (status === 'done' ? 'bg-emerald-400' : status === 'stopped' ? 'bg-gray-400' : 'bg-blue-400')}
               style={{ width: `${percent(book)}%` }}
             />
           </div>
@@ -387,10 +392,11 @@ function BookRow({ book, today, onSave, onRemove }) {
             {currentPage(book)} / {book.total_pages}p ({percent(book)}%)
             {status === 'done' && ` · ${book.start_date} ~ ${book.finished_at} (${daysBetween(book.start_date, book.finished_at) + 1}일)`}
             {status === 'planned' && ` · ${book.start_date} 시작`}
-            {status !== 'done' && ` · 하루 ${book.daily_target}p · ${daysLeft(book.total_pages, currentPage(book), book.daily_target)}일 남음`}
+            {status === 'stopped' && ` · ${book.start_date} ~ ${book.stopped_at} 중단`}
+            {active && ` · 하루 ${book.daily_target}p · ${daysLeft(book.total_pages, currentPage(book), book.daily_target)}일 남음`}
             {eta && ` · 예상 ${eta}`}
             {missed > 0 && <span className="text-gray-400"> · 놓친 날 {missed}일</span>}
-            {status !== 'done' && book.due_date && (
+            {active && book.due_date && (
               <span className={overdue ? 'text-red-500' : 'text-gray-400'}>
                 {` · 반납 ${book.due_date} (${dDay(today, book.due_date)})`}
                 {overdue && ' · 반납일 초과 예상'}
@@ -408,6 +414,21 @@ function BookRow({ book, today, onSave, onRemove }) {
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
         </button>
+        {status !== 'done' && (
+          <button
+            onClick={async () => {
+              try {
+                await onStop(book.id, status !== 'stopped');
+              } catch (err) {
+                alert(err.message);
+              }
+            }}
+            title={status === 'stopped' ? '읽는 중으로 되돌리기' : '목록에서 빼고 읽은 만큼만 기록으로 남기기'}
+            className="px-2 py-1 text-xs rounded text-gray-600 hover:bg-gray-100"
+          >
+            {status === 'stopped' ? '다시 읽기' : '중단'}
+          </button>
+        )}
         <button
           onClick={async () => {
             try {
@@ -474,7 +495,7 @@ function ReadingSettings({ settings, onSave }) {
 }
 
 export default function ReadingLog() {
-  const { books, settings, loaded, addBook, updateBook, removeBook, checkLog, uncheckLog, addNote, saveSettings } = useReading();
+  const { books, settings, loaded, addBook, updateBook, removeBook, setStopped, checkLog, uncheckLog, addNote, saveSettings } = useReading();
   const today = useToday();
   const [selectedDate, setSelectedDate] = useState(today);
   const [bookForm, setBookForm] = useState(() => createEmptyBookForm(today));
@@ -494,11 +515,9 @@ export default function ReadingLog() {
 
   const totals = useMemo(() => dailyTotals(books), [books]);
 
-  const checklist = books.filter((book) =>
-    book.start_date <= selectedDate && (!book.finished_at || book.finished_at >= selectedDate)
-  );
+  const checklist = books.filter((book) => isOnChecklist(book, selectedDate));
   const remaining = books
-    .filter((book) => bookStatus(book, today) !== 'done')
+    .filter((book) => ['reading', 'planned'].includes(bookStatus(book, today)))
     .sort((a, b) => {
       const sa = bookStatus(a, today);
       const sb = bookStatus(b, today);
@@ -509,6 +528,9 @@ export default function ReadingLog() {
   const finished = books
     .filter((book) => bookStatus(book, today) === 'done')
     .sort((a, b) => b.finished_at.localeCompare(a.finished_at));
+  const stopped = books
+    .filter((book) => bookStatus(book, today) === 'stopped')
+    .sort((a, b) => b.stopped_at.localeCompare(a.stopped_at));
 
   const moveDate = (days) => {
     const next = addDays(selectedDate, days);
@@ -613,7 +635,7 @@ export default function ReadingLog() {
                   </div>
                 ) : (
                   remaining.map((book) => (
-                    <BookRow key={book.id} book={book} today={today} onSave={updateBook} onRemove={removeBook} />
+                    <BookRow key={book.id} book={book} today={today} onSave={updateBook} onRemove={removeBook} onStop={setStopped} />
                   ))
                 )}
               </div>
@@ -623,7 +645,16 @@ export default function ReadingLog() {
               <summary className="font-semibold text-gray-800 cursor-pointer">완독 ({finished.length})</summary>
               <div className="mt-3 space-y-2">
                 {finished.map((book) => (
-                  <BookRow key={book.id} book={book} today={today} onSave={updateBook} onRemove={removeBook} />
+                  <BookRow key={book.id} book={book} today={today} onSave={updateBook} onRemove={removeBook} onStop={setStopped} />
+                ))}
+              </div>
+            </details>
+
+            <details className="bg-white border rounded p-4">
+              <summary className="font-semibold text-gray-800 cursor-pointer">중단 ({stopped.length})</summary>
+              <div className="mt-3 space-y-2">
+                {stopped.map((book) => (
+                  <BookRow key={book.id} book={book} today={today} onSave={updateBook} onRemove={removeBook} onStop={setStopped} />
                 ))}
               </div>
             </details>
