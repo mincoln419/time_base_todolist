@@ -296,6 +296,47 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get sectionReading => '독서';
+
+  @override
+  String get sectionAccount => '계정';
+
+  @override
+  String get sectionAbout => '정보';
+
+  @override
+  String get deleteAccount => '계정 삭제';
+
+  @override
+  String get deleteAccountConfirmTitle => '계정을 삭제할까요?';
+
+  @override
+  String get deleteAccountConfirmBody =>
+      '모든 책과 독서 기록이 삭제되고 되돌릴 수 없어요. 본인 확인을 위해 한 번 더 로그인해요.';
+
+  @override
+  String get deletingAccount => '계정을 삭제하는 중…';
+
+  @override
+  String deleteAccountFailed(String error) {
+    return '계정을 삭제하지 못했어요. 다시 시도해 주세요: $error';
+  }
+
+  @override
+  String get privacyPolicy => '개인정보처리방침';
+
+  @override
+  String get terms => '이용약관';
+
+  @override
+  String get contactSupport => '문의하기';
+
+  @override
+  String appVersion(String version, String build) {
+    return '버전 $version ($build)';
+  }
+
+  @override
   String get errTitleRequired => '제목을 입력해 주세요';
 
   @override

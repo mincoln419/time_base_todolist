@@ -1,18 +1,21 @@
 {
   "@@locale": "ko",
   "appTitle": "독서기록",
-
   "navToday": "오늘",
   "navBooks": "책",
   "navHeatmap": "잔디",
-
   "loginTitle": "하루 몇 페이지씩, 꾸준히",
   "loginSubtitle": "여러 권을 동시에 읽어도 오늘 몇 페이지를 읽으면 되는지 알려드려요.",
   "loginGoogle": "Google로 계속하기",
   "loginApple": "Apple로 계속하기",
   "loginFailed": "로그인하지 못했어요: {error}",
-  "@loginFailed": {"placeholders": {"error": {"type": "String"}}},
-
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "todayTitle": "오늘의 독서",
   "checkTitle": "독서 체크",
   "todayChip": "오늘",
@@ -27,43 +30,143 @@
   "finishButton": "완독",
   "pageInputLabel": "읽은 페이지",
   "pagesReadDelta": "+{pages}",
-  "@pagesReadDelta": {"placeholders": {"pages": {"type": "int"}}},
+  "@pagesReadDelta": {
+    "placeholders": {
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
   "pageRange": "{from} → {to}p",
-  "@pageRange": {"placeholders": {"from": {"type": "int"}, "to": {"type": "int"}}},
+  "@pageRange": {
+    "placeholders": {
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
   "belowTarget": "목표 미달",
   "logRemoved": "기록을 지웠어요",
   "undo": "되돌리기",
   "finishDialogTitle": "완독 처리할까요?",
   "finishDialogBody": "‘{title}’의 {date} 기록을 마지막 페이지({total}p)로 저장합니다.",
-  "@finishDialogBody": {"placeholders": {"title": {"type": "String"}, "date": {"type": "String"}, "total": {"type": "int"}}},
+  "@finishDialogBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "yes": "예",
   "no": "아니오",
-
   "booksTitle": "책",
   "booksRemaining": "남은 책 ({count})",
-  "@booksRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@booksRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "booksFinished": "완독 ({count})",
-  "@booksFinished": {"placeholders": {"count": {"type": "int"}}},
+  "@booksFinished": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "booksEmpty": "읽는 중이거나 읽을 예정인 책이 없어요",
   "statusPlanned": "예정",
   "bookProgress": "{current} / {total}p ({percent}%)",
-  "@bookProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}, "percent": {"type": "int"}}},
+  "@bookProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "bookDailyTarget": "하루 {target}p",
-  "@bookDailyTarget": {"placeholders": {"target": {"type": "int"}}},
+  "@bookDailyTarget": {
+    "placeholders": {
+      "target": {
+        "type": "int"
+      }
+    }
+  },
   "bookDaysLeft": "{days}일 남음",
-  "@bookDaysLeft": {"placeholders": {"days": {"type": "int"}}},
+  "@bookDaysLeft": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "bookEta": "예상 {date}",
-  "@bookEta": {"placeholders": {"date": {"type": "String"}}},
+  "@bookEta": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "bookMissed": "놓친 날 {days}일",
-  "@bookMissed": {"placeholders": {"days": {"type": "int"}}},
+  "@bookMissed": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "bookDue": "반납 {date} ({dday})",
-  "@bookDue": {"placeholders": {"date": {"type": "String"}, "dday": {"type": "String"}}},
+  "@bookDue": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "dday": {
+        "type": "String"
+      }
+    }
+  },
   "overdueWarning": "반납일 초과 예상",
   "bookStartsOn": "{date} 시작",
-  "@bookStartsOn": {"placeholders": {"date": {"type": "String"}}},
+  "@bookStartsOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "bookFinishedRange": "{start} ~ {end} ({days}일)",
-  "@bookFinishedRange": {"placeholders": {"start": {"type": "String"}, "end": {"type": "String"}, "days": {"type": "int"}}},
-
+  "@bookFinishedRange": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      },
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "formNewTitle": "책 추가",
   "formEditTitle": "책 수정",
   "fieldTitle": "제목",
@@ -75,61 +178,207 @@
   "noDueDate": "없음",
   "clearDueDate": "반납일 지우기",
   "fitDueDate": "반납일 맞추기 ({target}p)",
-  "@fitDueDate": {"placeholders": {"target": {"type": "int"}}},
+  "@fitDueDate": {
+    "placeholders": {
+      "target": {
+        "type": "int"
+      }
+    }
+  },
   "fitDueDateUnavailable": "반납일 맞추기",
   "dueDatePassed": "반납일이 지났어요",
   "formPreview": "하루 {target}p 기준 약 {days}일 · 예상 완독 {date}",
-  "@formPreview": {"placeholders": {"target": {"type": "int"}, "days": {"type": "int"}, "date": {"type": "String"}}},
+  "@formPreview": {
+    "placeholders": {
+      "target": {
+        "type": "int"
+      },
+      "days": {
+        "type": "int"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "formPreviewDone": "이미 완독한 상태예요",
   "deleteBook": "삭제",
   "deleteBookConfirm": "‘{title}’과 모든 기록을 삭제할까요?",
-  "@deleteBookConfirm": {"placeholders": {"title": {"type": "String"}}},
-
+  "@deleteBookConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "heatmapTitle": "독서 잔디",
   "summaryTotal": "총 {days}일",
-  "@summaryTotal": {"placeholders": {"days": {"type": "int"}}},
+  "@summaryTotal": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "summaryMonth": "이번 달 {days}일",
-  "@summaryMonth": {"placeholders": {"days": {"type": "int"}}},
+  "@summaryMonth": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "summaryStreak": "연속 {days}일",
-  "@summaryStreak": {"placeholders": {"days": {"type": "int"}}},
+  "@summaryStreak": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
   "heatmapCellLabel": "{date}, {pages}페이지",
-  "@heatmapCellLabel": {"placeholders": {"date": {"type": "String"}, "pages": {"type": "int"}}},
+  "@heatmapCellLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
   "heatmapNoRecord": "기록 없음",
   "heatmapItem": "{title} {pages}p",
-  "@heatmapItem": {"placeholders": {"title": {"type": "String"}, "pages": {"type": "int"}}},
+  "@heatmapItem": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
   "recordThisDay": "이 날짜 기록하기",
   "legendLess": "적음",
   "legendMore": "많음",
-
   "settingsTitle": "설정",
   "settingDefaultTarget": "새 책 기본 하루 목표",
   "settingHeatmapWeeks": "잔디 표시 기간",
   "pagesValue": "{pages}p",
-  "@pagesValue": {"placeholders": {"pages": {"type": "int"}}},
+  "@pagesValue": {
+    "placeholders": {
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
   "weeksValue": "{weeks}주",
-  "@weeksValue": {"placeholders": {"weeks": {"type": "int"}}},
+  "@weeksValue": {
+    "placeholders": {
+      "weeks": {
+        "type": "int"
+      }
+    }
+  },
   "signOut": "로그아웃",
   "signedInAs": "{name}(으)로 로그인됨",
-  "@signedInAs": {"placeholders": {"name": {"type": "String"}}},
-
+  "@signedInAs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sectionReading": "독서",
+  "sectionAccount": "계정",
+  "sectionAbout": "정보",
+  "deleteAccount": "계정 삭제",
+  "deleteAccountConfirmTitle": "계정을 삭제할까요?",
+  "deleteAccountConfirmBody": "모든 책과 독서 기록이 삭제되고 되돌릴 수 없어요. 본인 확인을 위해 한 번 더 로그인해요.",
+  "deletingAccount": "계정을 삭제하는 중…",
+  "deleteAccountFailed": "계정을 삭제하지 못했어요. 다시 시도해 주세요: {error}",
+  "@deleteAccountFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "privacyPolicy": "개인정보처리방침",
+  "terms": "이용약관",
+  "contactSupport": "문의하기",
+  "appVersion": "버전 {version} ({build})",
+  "@appVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
   "errTitleRequired": "제목을 입력해 주세요",
   "errInvalidTotal": "총 페이지는 1 이상으로 입력해 주세요",
   "errInvalidStart": "현재 페이지는 0 ~ 총 페이지 사이로 입력해 주세요",
   "errInvalidTarget": "하루 목표는 1 이상으로 입력해 주세요",
   "errDueBeforeStart": "반납일은 시작일 이후여야 해요",
   "errStartPageAfterLogs": "이미 기록된 페이지({page}p)보다 클 수 없어요",
-  "@errStartPageAfterLogs": {"placeholders": {"page": {"type": "int"}}},
+  "@errStartPageAfterLogs": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
   "errTotalBelowLogs": "이미 읽은 페이지({page}p)보다 작을 수 없어요",
-  "@errTotalBelowLogs": {"placeholders": {"page": {"type": "int"}}},
+  "@errTotalBelowLogs": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
   "errStartDateAfterLogs": "{date} 기록이 있어 그 이후로 바꿀 수 없어요",
-  "@errStartDateAfterLogs": {"placeholders": {"date": {"type": "String"}}},
+  "@errStartDateAfterLogs": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "errLogDate": "시작일부터 오늘까지만 기록할 수 있어요",
   "errNotAfterPrevious": "이전 기록({page}p)보다 커야 해요",
-  "@errNotAfterPrevious": {"placeholders": {"page": {"type": "int"}}},
+  "@errNotAfterPrevious": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
   "errOverTotal": "총 페이지({total}p)를 넘을 수 없어요",
-  "@errOverTotal": {"placeholders": {"total": {"type": "int"}}},
+  "@errOverTotal": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "errOverNext": "이후 기록({page}p)보다 클 수 없어요",
-  "@errOverNext": {"placeholders": {"page": {"type": "int"}}},
+  "@errOverNext": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
   "errSaveFailed": "저장하지 못했어요: {error}",
-  "@errSaveFailed": {"placeholders": {"error": {"type": "String"}}}
+  "@errSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

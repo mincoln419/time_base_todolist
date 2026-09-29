@@ -568,6 +568,78 @@ abstract class AppLocalizations {
   /// **'{name}(으)로 로그인됨'**
   String signedInAs(String name);
 
+  /// No description provided for @sectionReading.
+  ///
+  /// In ko, this message translates to:
+  /// **'독서'**
+  String get sectionReading;
+
+  /// No description provided for @sectionAccount.
+  ///
+  /// In ko, this message translates to:
+  /// **'계정'**
+  String get sectionAccount;
+
+  /// No description provided for @sectionAbout.
+  ///
+  /// In ko, this message translates to:
+  /// **'정보'**
+  String get sectionAbout;
+
+  /// No description provided for @deleteAccount.
+  ///
+  /// In ko, this message translates to:
+  /// **'계정 삭제'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteAccountConfirmTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'계정을 삭제할까요?'**
+  String get deleteAccountConfirmTitle;
+
+  /// No description provided for @deleteAccountConfirmBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'모든 책과 독서 기록이 삭제되고 되돌릴 수 없어요. 본인 확인을 위해 한 번 더 로그인해요.'**
+  String get deleteAccountConfirmBody;
+
+  /// No description provided for @deletingAccount.
+  ///
+  /// In ko, this message translates to:
+  /// **'계정을 삭제하는 중…'**
+  String get deletingAccount;
+
+  /// No description provided for @deleteAccountFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'계정을 삭제하지 못했어요. 다시 시도해 주세요: {error}'**
+  String deleteAccountFailed(String error);
+
+  /// No description provided for @privacyPolicy.
+  ///
+  /// In ko, this message translates to:
+  /// **'개인정보처리방침'**
+  String get privacyPolicy;
+
+  /// No description provided for @terms.
+  ///
+  /// In ko, this message translates to:
+  /// **'이용약관'**
+  String get terms;
+
+  /// No description provided for @contactSupport.
+  ///
+  /// In ko, this message translates to:
+  /// **'문의하기'**
+  String get contactSupport;
+
+  /// No description provided for @appVersion.
+  ///
+  /// In ko, this message translates to:
+  /// **'버전 {version} ({build})'**
+  String appVersion(String version, String build);
+
   /// No description provided for @errTitleRequired.
   ///
   /// In ko, this message translates to:
