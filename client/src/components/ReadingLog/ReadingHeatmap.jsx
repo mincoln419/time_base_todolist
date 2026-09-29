@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { addDays, parseDate } from '../../utils/readingCalc';
 
-const WEEKS = 53;
 const DAY_LABELS = ['', '월', '', '수', '', '금', ''];
 const LEVELS = [
   { min: 40, className: 'bg-emerald-700' },
@@ -17,7 +16,7 @@ function levelClass(pages) {
 function tooltip(date, entry) {
   if (!entry) return `${date} · 기록 없음`;
   const detail = entry.items
-    .map((item) => `${item.title} ${item.pages}p${item.pages < item.target ? `(목표 ${item.target}p 미달)` : ''}`)
+    .map((item) => `${item.title} ${item.pages}p${item.belowTarget ? `(목표 ${item.target}p 미달)` : ''}`)
     .join(', ');
   return `${date} · ${entry.pages}p\n${detail}`;
 }
@@ -32,15 +31,15 @@ function streak(totals, today) {
   return count;
 }
 
-export default function ReadingHeatmap({ totals, today, selectedDate, onSelectDate }) {
-  // 이번 주 토요일에서 끝나는 53주, 일요일 시작 열
+export default function ReadingHeatmap({ totals, today, selectedDate, onSelectDate, weekCount }) {
+  // 이번 주 토요일에서 끝나는 weekCount주(독서기록 설정), 일요일 시작 열
   const weeks = useMemo(() => {
     const end = addDays(today, 6 - parseDate(today).getDay());
-    const start = addDays(end, -(WEEKS * 7 - 1));
-    return Array.from({ length: WEEKS }, (_, w) =>
+    const start = addDays(end, -(weekCount * 7 - 1));
+    return Array.from({ length: weekCount }, (_, w) =>
       Array.from({ length: 7 }, (_, d) => addDays(start, w * 7 + d))
     );
-  }, [today]);
+  }, [today, weekCount]);
 
   const monthPrefix = today.slice(0, 7);
   const readDays = [...totals.keys()];

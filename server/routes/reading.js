@@ -1,6 +1,6 @@
 const express = require('express');
 const { firestore } = require('../db/firestore');
-const { READING_BOOKS, READING_LOGS, DAILY_NOTES, COUNTER_KEYS } = require('../db/collections');
+const { READING_BOOKS, READING_LOGS, READING_SETTINGS, DAILY_NOTES, COUNTER_KEYS } = require('../db/collections');
 const { nowString, nextId, NotFoundError, asyncHandler, exceedsTextFieldLimit } = require('../db/util');
 const { extractNoteTags } = require('../services/noteTags');
 
@@ -8,6 +8,10 @@ const router = express.Router();
 const booksRef = firestore.collection(READING_BOOKS);
 const logsRef = firestore.collection(READING_LOGS);
 const notesRef = firestore.collection(DAILY_NOTES);
+// 독서기록 설정(단일 사용자 앱이라 문서 1건). 값은 사용자가 설정에서 바꾸며, 아래는 문서가 없을 때의 초기값이다 —
+// 하루 목표 10은 기존 기본값, 잔디 53주는 기존 1년 표시와 같다.
+const settingsRef = firestore.collection(READING_SETTINGS).doc('default');
+const INITIAL_SETTINGS = { id: 'default', default_daily_target: 10, heatmap_weeks: 53 };
 const NOTE_SOURCE = 'reading'; // 독서기록에서 작성한 데일리노트 표시(필드값)
 const NOTE_SOURCE_TAG = '오늘의독서'; // 데일리노트에서 태그로 찾을 수 있도록 넣는 출처 키워드
 const DEFAULT_DAILY_TARGET = 10;
@@ -100,6 +104,27 @@ function validateBookFields(body, current) {
   return { title, total_pages: total, start_page: start, start_date: startDate, daily_target: target, due_date: dueDate };
 }
 
+// GET /api/reading/settings - 독서기록 설정 (새 책 기본 하루 목표, 잔디 표시 주 수)
+router.get('/settings', asyncHandler(async (req, res) => {
+  const snap = await settingsRef.get();
+  res.json({ ...INITIAL_SETTINGS, ...(snap.exists ? snap.data() : {}) });
+}));
+
+// PUT /api/reading/settings - 설정 저장 (보낸 항목만 갱신)
+router.put('/settings', asyncHandler(async (req, res) => {
+  const snap = await settingsRef.get();
+  const current = { ...INITIAL_SETTINGS, ...(snap.exists ? snap.data() : {}) };
+  const next = { ...current };
+  for (const key of ['default_daily_target', 'heatmap_weeks']) {
+    if (req.body?.[key] === undefined) continue;
+    const value = Number(req.body[key]);
+    if (!Number.isInteger(value) || value < 1) throw badRequest('설정 값은 1 이상의 정수로 입력해주세요.');
+    next[key] = value;
+  }
+  await settingsRef.set(next);
+  res.json(next);
+}));
+
 // GET /api/reading/books - 전체 책 + 기록 (데이터 양이 적어 전체 로드)
 router.get('/books', asyncHandler(async (req, res) => {
   const [booksSnap, logsSnap] = await Promise.all([booksRef.get(), logsRef.get()]);
@@ -155,6 +180,21 @@ router.patch('/books/:id', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
+// PUT /api/reading/books/:id/stopped - 독서 중단/다시 읽기. 중단하면 오늘 날짜를 stopped_at에 남긴다.
+// 기록은 그대로 두어 얼마나 읽었는지는 계속 보인다.
+router.put('/books/:id/stopped', asyncHandler(async (req, res) => {
+  const ref = booksRef.doc(req.params.id);
+  const result = await firestore.runTransaction(async (tx) => {
+    const { book, logs } = await loadBookWithLogs(tx, req.params.id);
+    const stopped = !!req.body?.stopped;
+    if (stopped && book.finished_at) throw badRequest('완독한 책은 중단할 수 없습니다.');
+    const updated = { ...book, stopped_at: stopped ? (book.stopped_at || todayString()) : null, updated_at: nowString() };
+    tx.set(ref, updated);
+    return withLogs(updated, logs);
+  });
+  res.json(result);
+}));
+
 // DELETE /api/reading/books/:id - 책과 그 기록 삭제
 router.delete('/books/:id', asyncHandler(async (req, res) => {
   const ref = booksRef.doc(req.params.id);
@@ -179,6 +219,9 @@ router.put('/books/:id/logs/:date', asyncHandler(async (req, res) => {
     const { book, logs } = await loadBookWithLogs(tx, req.params.id);
     if (date < book.start_date || date > todayString()) {
       throw badRequest('시작일부터 오늘까지만 기록할 수 있습니다.');
+    }
+    if (book.stopped_at && date >= book.stopped_at && !logs.some((l) => l.date === date)) {
+      throw badRequest('중단한 책은 중단일 이후로 기록할 수 없습니다. 다시 읽기로 바꿔주세요.');
     }
 
     // 날짜순으로 페이지가 단조 증가하도록 앞뒤 기록 사이 값만 허용
