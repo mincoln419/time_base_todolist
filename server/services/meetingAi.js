@@ -15,8 +15,9 @@ JSON 배열 하나만 응답하세요. 다른 설명, 마크다운, 코드펜스
 - status: "대기" | "진행중" | "완료" 중 하나 (원문에 "진행 중"이 있으면 "진행중", "완료"/"됨"이 있으면 "완료", 그 외 "대기")
 - due_date: 원문에 표현된 일정/기한 문구를 그대로 (예: "8/27", "금일 오후", "목요일"), 없으면 null
 - assignee: 담당자/담당 파트 (예: "BE", "지니", "박찬준"), 없으면 null
+- progress: 해당 항목의 진행상황 파트 원문을 요약하지 말고 그대로 (없으면 null)
 
-예시 응답: [{"task_type":"Release","content":"3.0.1 Jackson 호환 Hotfix","status":"진행중","due_date":"진행 중","assignee":"BE"}]`;
+예시 응답: [{"task_type":"Release","content":"3.0.1 Jackson 호환 Hotfix","status":"진행중","due_date":"진행 중","assignee":"BE","progress":"진행 중"}]`;
 
 function parseActionItems(text, rawNotes) {
   const cleaned = String(text ?? '').replace(/```json|```/g, '').trim();
@@ -27,7 +28,10 @@ function parseActionItems(text, rawNotes) {
       .map((item) => ({
         task_type: String(item.task_type ?? '기타').trim() || '기타',
         content: String(item.content ?? '').trim(),
-        status: VALID_STATUSES.has(item.status) ? item.status : '대기',
+        // 진행상황 파트에 '완료'가 있으면 LLM 판단과 무관하게 완료로 확정
+        status: String(item.progress ?? '').includes('완료')
+          ? '완료'
+          : (VALID_STATUSES.has(item.status) ? item.status : '대기'),
         due_date: item.due_date ? String(item.due_date).trim() : null,
         assignee: item.assignee ? String(item.assignee).trim() : null,
       }))
