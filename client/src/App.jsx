@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import DateNavigator from './components/DateNavigator';
 import TaskBacklog from './components/TaskBacklog/TaskBacklog';
@@ -83,25 +83,6 @@ export default function App() {
     window.history.pushState({ tab: nextTab }, '', `#${nextTab}`);
     setTab(nextTab);
   };
-
-  // 데이터 폴링과 별개로, 탭을 오래 켜둬도 최신 빌드/상태를 반영하도록 매시 00분·30분마다 전체 새로고침
-  // 새로고침하면 탭이 일정관리로 초기화되므로, 해당 시점에 일정관리 탭일 때만 새로고침하고 다른 탭이면 건너뛴다
-  const tabRef = useRef(tab);
-  tabRef.current = tab;
-  useEffect(() => {
-    let timer;
-    const scheduleNextHalfHour = () => {
-      const now = new Date();
-      const next = new Date(now);
-      next.setMinutes(now.getMinutes() < 30 ? 30 : 60, 0, 0);
-      timer = setTimeout(() => {
-        if (tabRef.current === 'schedule') window.location.reload();
-        else scheduleNextHalfHour();
-      }, next - now);
-    };
-    scheduleNextHalfHour();
-    return () => clearTimeout(timer);
-  }, []);
 
   // 드롭 지점부터 다음 일정(또는 하루 끝)까지 남은 시간에 맞춰 기본 길이를 정한다 — 60분이 다 안 남으면 30분 단위로 축소
   const getDefaultDuration = (startMin) => {
