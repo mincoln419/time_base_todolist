@@ -59,6 +59,8 @@ class HeatmapScreen extends ConsumerWidget {
               _HeatmapGrid(totals: totals, today: today, weeks: weeks),
               const SizedBox(height: 12),
               const _Legend(),
+              const SizedBox(height: 24),
+              _DailyTotalsList(totals: totals),
             ],
           );
         },
@@ -174,6 +176,59 @@ class _HeatmapGrid extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 일자별 기록 — 날짜마다 전체 책의 읽은 페이지 합과 책별 내역. 잔디와 같은 합계라 추가 조회가 없다.
+class _DailyTotalsList extends ConsumerStatefulWidget {
+  const _DailyTotalsList({required this.totals});
+
+  final Map<DateKey, DailyTotal> totals;
+
+  @override
+  ConsumerState<_DailyTotalsList> createState() => _DailyTotalsListState();
+}
+
+class _DailyTotalsListState extends ConsumerState<_DailyTotalsList> {
+  /// 처음 보여줄 날 수이자 "더 보기" 한 번에 늘어나는 날 수 (화면 표시용).
+  static const _step = 10;
+  int _visible = _step;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final days = widget.totals.entries.toList()..sort((a, b) => b.key.compareTo(a.key));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.dailyRecordsTitle(days.length), style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        if (days.isEmpty) Text(l10n.noRecordsYet, style: theme.textTheme.bodySmall),
+        for (final day in days.take(_visible))
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            title: Text(formatDayHeader(day.key)),
+            subtitle: Text(
+              day.value.items
+                  .map((i) => [l10n.heatmapItem(i.title, i.pages), if (i.belowTarget) l10n.belowTarget].join(' '))
+                  .join(' · '),
+            ),
+            trailing: Text(l10n.pagesValue(day.value.pages), style: theme.textTheme.titleMedium),
+            onTap: () {
+              ref.read(selectedDateProvider.notifier).select(day.key);
+              context.go(Routes.today);
+            },
+          ),
+        if (days.length > _visible)
+          TextButton(
+            onPressed: () => setState(() => _visible += _step),
+            child: Text(l10n.showMoreDays(days.length - _visible)),
+          ),
+      ],
     );
   }
 }

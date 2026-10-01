@@ -288,6 +288,24 @@ class AppLocalizationsKo extends AppLocalizations {
   String get legendMore => '많음';
 
   @override
+  String dayTotal(int pages) {
+    return '총 ${pages}p';
+  }
+
+  @override
+  String dailyRecordsTitle(int days) {
+    return '일자별 기록 ($days일)';
+  }
+
+  @override
+  String showMoreDays(int days) {
+    return '더 보기 ($days일 남음)';
+  }
+
+  @override
+  String get noRecordsYet => '아직 기록이 없어요';
+
+  @override
   String get settingsTitle => '설정';
 
   @override

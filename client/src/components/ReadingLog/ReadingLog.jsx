@@ -447,6 +447,52 @@ function BookRow({ book, today, onSave, onRemove, onStop }) {
   );
 }
 
+// 일자별 기록 — 날짜마다 전체 책의 읽은 페이지 합과 책별 내역 (잔디와 같은 합계, 추가 조회 없음)
+const DAILY_TOTALS_STEP = 10; // 처음 보여줄 날 수, "더 보기" 한 번에 늘어나는 날 수
+
+function DailyTotalsList({ totals, selectedDate, onSelectDate }) {
+  const [visible, setVisible] = useState(DAILY_TOTALS_STEP);
+  const days = useMemo(() => [...totals.entries()].sort(([a], [b]) => b.localeCompare(a)), [totals]);
+
+  return (
+    <section className="bg-white border rounded p-4">
+      <h2 className="font-semibold text-gray-800 mb-3">일자별 기록 ({days.length}일)</h2>
+      {days.length === 0 ? (
+        <div className="p-4 text-sm text-gray-400 text-center border rounded border-dashed">아직 기록이 없습니다.</div>
+      ) : (
+        <div className="divide-y border rounded">
+          {days.slice(0, visible).map(([date, entry]) => (
+            <button
+              key={date}
+              onClick={() => onSelectDate(date)}
+              className={'w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-gray-50 ' + (date === selectedDate ? 'bg-blue-50' : '')}
+            >
+              <span className="w-24 flex-shrink-0 text-sm text-gray-600">{date}</span>
+              <span className="w-14 flex-shrink-0 text-sm font-semibold text-gray-800">{entry.pages}p</span>
+              <span className="min-w-0 flex-1 text-xs text-gray-500">
+                {entry.items.map((item, i) => (
+                  <span key={`${item.title}-${i}`} className="mr-2 inline-block">
+                    {item.title} {item.pages}p
+                    {item.belowTarget && <span className="text-amber-600"> (미달)</span>}
+                  </span>
+                ))}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {days.length > visible && (
+        <button
+          onClick={() => setVisible((v) => v + DAILY_TOTALS_STEP)}
+          className="mt-2 w-full px-3 py-1.5 text-xs rounded text-gray-600 hover:bg-gray-100"
+        >
+          더 보기 ({days.length - visible}일 남음)
+        </button>
+      )}
+    </section>
+  );
+}
+
 // 독서기록 설정 — 새 책 기본 하루 목표, 잔디 표시 기간 (값을 코드에 고정하지 않고 사용자가 정한다)
 function ReadingSettings({ settings, onSave }) {
   const [form, setForm] = useState({
@@ -564,11 +610,17 @@ export default function ReadingLog() {
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_420px] gap-4">
+          <div className="space-y-4 min-w-0">
           <section className="bg-white border rounded p-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <h2 className="font-semibold text-gray-800">
-                {selectedDate === today ? '오늘의 독서' : '독서 체크'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-gray-800">
+                  {selectedDate === today ? '오늘의 독서' : '독서 체크'}
+                </h2>
+                <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700">
+                  총 {totals.get(selectedDate)?.pages ?? 0}p
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => moveDate(-1)} className="px-2 py-1 text-sm rounded bg-gray-100 hover:bg-gray-200">◀</button>
                 <input
@@ -612,6 +664,9 @@ export default function ReadingLog() {
               )}
             </div>
           </section>
+
+          <DailyTotalsList totals={totals} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+          </div>
 
           <aside className="space-y-4">
             <section className="bg-white border rounded p-4">
