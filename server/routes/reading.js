@@ -3,6 +3,7 @@ const { firestore } = require('../db/firestore');
 const { READING_BOOKS, READING_LOGS, READING_SETTINGS, DAILY_NOTES, COUNTER_KEYS } = require('../db/collections');
 const { nowString, nextId, NotFoundError, asyncHandler, exceedsTextFieldLimit } = require('../db/util');
 const { extractNoteTags } = require('../services/noteTags');
+const noteIndex = require('../services/dailyNoteIndex');
 
 const router = express.Router();
 const booksRef = firestore.collection(READING_BOOKS);
@@ -314,6 +315,7 @@ router.post('/books/:id/notes', asyncHandler(async (req, res) => {
       created_at: now, updated_at: now,
     };
     tx.set(notesRef.doc(String(id)), doc);
+    noteIndex.setEntry(tx, doc);
     return doc;
   });
 

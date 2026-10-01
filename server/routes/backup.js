@@ -6,6 +6,7 @@ const {
   WARROOM_RAILS, WARROOM_MEMBERS, WARROOM_MEMBER_TASKS, DAILY_NOTES, READING_BOOKS, READING_LOGS, READING_SETTINGS,
 } = require('../db/collections');
 const { asyncHandler } = require('../db/util');
+const noteIndex = require('../services/dailyNoteIndex');
 
 const router = express.Router();
 
@@ -163,6 +164,8 @@ router.post('/import', asyncHandler(async (req, res) => {
     for (const table of config.tables) {
       counts[table] = await importTable(table, data[table], customerNameById);
     }
+    // 노트가 통째로 바뀌었으니 경량 인덱스는 다음 조회 때 다시 만든다
+    if (config.tables.includes('daily_notes')) await noteIndex.invalidate();
   } catch (e) {
     return res.status(400).json({ error: '가져오기에 실패했습니다: ' + e.message });
   }
