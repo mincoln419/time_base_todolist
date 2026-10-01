@@ -40,8 +40,13 @@ class TodayScreen extends ConsumerWidget {
         error: (error, _) => Center(child: Text(error.toString())),
         data: (snap) {
           final books = snap.books.where((b) => ReadingCalc.isOnChecklist(b, date)).toList();
+          final dayPages = ReadingCalc.dailyTotals(snap.books)[date]?.pages ?? 0;
           return Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Chip(avatar: const Icon(Icons.auto_stories_outlined, size: 16), label: Text(l10n.dayTotal(dayPages))),
+              ),
               if (snap.hasPendingWrites)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

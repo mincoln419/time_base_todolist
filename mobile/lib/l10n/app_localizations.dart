@@ -556,6 +556,30 @@ abstract class AppLocalizations {
   /// **'많음'**
   String get legendMore;
 
+  /// No description provided for @dayTotal.
+  ///
+  /// In ko, this message translates to:
+  /// **'총 {pages}p'**
+  String dayTotal(int pages);
+
+  /// No description provided for @dailyRecordsTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'일자별 기록 ({days}일)'**
+  String dailyRecordsTitle(int days);
+
+  /// No description provided for @showMoreDays.
+  ///
+  /// In ko, this message translates to:
+  /// **'더 보기 ({days}일 남음)'**
+  String showMoreDays(int days);
+
+  /// No description provided for @noRecordsYet.
+  ///
+  /// In ko, this message translates to:
+  /// **'아직 기록이 없어요'**
+  String get noRecordsYet;
+
   /// No description provided for @settingsTitle.
   ///
   /// In ko, this message translates to:

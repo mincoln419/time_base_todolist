@@ -284,6 +284,31 @@
   "recordThisDay": "이 날짜 기록하기",
   "legendLess": "적음",
   "legendMore": "많음",
+  "dayTotal": "총 {pages}p",
+  "@dayTotal": {
+    "placeholders": {
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "dailyRecordsTitle": "일자별 기록 ({days}일)",
+  "@dailyRecordsTitle": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "showMoreDays": "더 보기 ({days}일 남음)",
+  "@showMoreDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "noRecordsYet": "아직 기록이 없어요",
   "settingsTitle": "설정",
   "settingDefaultTarget": "새 책 기본 하루 목표",
   "settingHeatmapWeeks": "잔디 표시 기간",
