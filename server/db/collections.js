@@ -26,6 +26,7 @@ module.exports = {
   WARROOM_MEMBERS: 'warroomMembers',
   WARROOM_MEMBER_TASKS: 'warroomMemberTasks', // top-level, member_id 필드
   DAILY_NOTES: 'dailyNotes',
+  DAILY_NOTE_INDEX: 'dailyNoteIndex', // 단일 문서 'all' — 노트별 제목·태그만 (services/dailyNoteIndex.js)
   MEETINGS: 'meetings',
   MEETING_OVERALL_ITEMS: 'meetingOverallItems', // top-level, meeting_id 필드
   MEETING_PART_ITEMS: 'meetingPartItems', // top-level, meeting_id 필드

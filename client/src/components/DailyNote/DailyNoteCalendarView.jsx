@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { noteLabel, noteKeywords, renderNoteMarkdown } from './noteUtils';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -20,7 +20,8 @@ function buildGrid(year, month) {
   });
 }
 
-export default function DailyNoteCalendarView({ notes, onCreateForDate, onEdit, onDelete }) {
+// 날짜별 개수는 제목·태그 인덱스(entries)로 세고, 날짜를 고르면 그날 노트만 본문을 읽는다
+export default function DailyNoteCalendarView({ entries, notesById, ensureNotes, onCreateForDate, onEdit, onDelete }) {
   const today = new Date();
   const [ym, setYm] = useState({ year: today.getFullYear(), month: today.getMonth() });
   const [selectedDate, setSelectedDate] = useState(null);
@@ -31,13 +32,18 @@ export default function DailyNoteCalendarView({ notes, onCreateForDate, onEdit, 
   };
 
   const byDate = {};
-  for (const note of notes) {
-    (byDate[note.date] ??= []).push(note);
+  for (const entry of entries) {
+    (byDate[entry.date] ??= []).push(entry);
   }
 
   const days = buildGrid(ym.year, ym.month);
   const todayStr = toDateString(today);
-  const selectedNotes = selectedDate ? byDate[selectedDate] ?? [] : [];
+  const selectedEntries = selectedDate ? byDate[selectedDate] ?? [] : [];
+  const selectedKey = selectedEntries.map((e) => e.id).join(',');
+  useEffect(() => {
+    if (selectedKey) ensureNotes(selectedKey.split(',').map(Number)).catch(() => {});
+  }, [selectedKey, ensureNotes]);
+  const selectedNotes = selectedEntries.map((e) => notesById[e.id] ?? e);
 
   return (
     <div className="flex flex-col gap-4">

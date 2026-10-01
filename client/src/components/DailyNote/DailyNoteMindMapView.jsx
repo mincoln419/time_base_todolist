@@ -244,7 +244,8 @@ function ConnectedNoteCard({ note, onEdit, onDelete }) {
   );
 }
 
-export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
+// 그래프는 제목·태그 인덱스(entries)만으로 그리고, 선택한 노트와 연결된 노트만 본문을 읽는다
+export default function DailyNoteMindMapView({ entries: notes, notesById, ensureNotes, onEdit, onDelete }) {
   const links = useMemo(() => buildLinks(notes), [notes]);
   const degree = useMemo(() => {
     const d = {};
@@ -325,7 +326,8 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
     if (drag.moved < DRAG_CLICK_THRESHOLD) setSelectedId(noteId);
   };
 
-  const selectedNote = notes.find((n) => n.id === selectedId) ?? null;
+  const selectedEntry = notes.find((n) => n.id === selectedId) ?? null;
+  const selectedNote = selectedEntry ? notesById[selectedEntry.id] ?? selectedEntry : null;
 
   // 선택한 노드와 1뎁스로 연결된 노트 목록 — 목록 뷰와 동일한 카드로 하단에 쭉 보여준다.
   const neighborNotes = useMemo(() => {
@@ -335,8 +337,14 @@ export default function DailyNoteMindMapView({ notes, onEdit, onDelete }) {
       if (link.source === selectedId) neighborIds.add(link.target);
       else if (link.target === selectedId) neighborIds.add(link.source);
     }
-    return notes.filter((n) => neighborIds.has(n.id));
-  }, [selectedId, links, notes]);
+    return notes.filter((n) => neighborIds.has(n.id)).map((n) => notesById[n.id] ?? n);
+  }, [selectedId, links, notes, notesById]);
+
+  // 선택이 바뀌면 그 노트와 연결된 노트의 본문만 읽는다
+  const detailKey = selectedId ? [selectedId, ...neighborNotes.map((n) => n.id)].join(',') : '';
+  useEffect(() => {
+    if (detailKey) ensureNotes(detailKey.split(',').map(Number)).catch(() => {});
+  }, [detailKey, ensureNotes]);
 
   const [neighborsExpanded, setNeighborsExpanded] = useState(false);
   const [neighborsOverflowing, setNeighborsOverflowing] = useState(false);

@@ -12,7 +12,18 @@ const VIEWS = [
 ];
 
 export default function DailyNote() {
-  const { notes, loaded, addNote, editNote, removeNote } = useDailyNotes();
+  const { entries, notesById, ensureNotes, getNote, loaded, addNote, editNote, removeNote } = useDailyNotes();
+  // 화면에는 본문 없는 인덱스 항목이 넘어올 수 있으므로, 수정 폼은 항상 본문까지 읽은 노트로 연다
+  // (본문 없이 열면 저장 시 본문이 지워진다)
+  const editWithBody = async (note) => {
+    try {
+      const full = await getNote(note.id);
+      if (full) openEditForm(full);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+  const viewProps = { entries, notesById, ensureNotes, onEdit: editWithBody, onDelete: removeNote };
   const [view, setView] = useState('list');
   const [formOpen, setFormOpen] = useState(false);
   const [formDefaultDate, setFormDefaultDate] = useState(null);
@@ -83,13 +94,13 @@ export default function DailyNote() {
       )}
 
       {view === 'list' && (
-        <DailyNoteList notes={notes} onEdit={openEditForm} onDelete={removeNote} />
+        <DailyNoteList {...viewProps} />
       )}
       {view === 'calendar' && (
-        <DailyNoteCalendarView notes={notes} onCreateForDate={openCreateForm} onEdit={openEditForm} onDelete={removeNote} />
+        <DailyNoteCalendarView {...viewProps} onCreateForDate={openCreateForm} />
       )}
       {view === 'mindmap' && (
-        <DailyNoteMindMapView notes={notes} onEdit={openEditForm} onDelete={removeNote} />
+        <DailyNoteMindMapView {...viewProps} />
       )}
     </div>
   );

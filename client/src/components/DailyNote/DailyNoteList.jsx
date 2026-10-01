@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { noteLabel, noteKeywords, renderNoteMarkdown } from './noteUtils';
 
 // 본문이 짧으면(줄바꿈 없고 대략 한 줄 길이) 접기/펼치기 버튼 자체를 표시하지 않는다
@@ -51,16 +51,31 @@ function NoteCard({ note, onEdit, onDelete }) {
   );
 }
 
-export default function DailyNoteList({ notes, onEdit, onDelete }) {
+// 한 페이지에 보여줄 노트 수 — 페이지마다 본문을 이만큼만 읽는다
+const PAGE_SIZE = 10;
+
+// 목록은 제목·태그 인덱스(entries)로 필터·페이지를 나누고, 현재 페이지 노트만 본문을 읽는다
+export default function DailyNoteList({ entries, notesById, ensureNotes, onEdit, onDelete }) {
   const [filter, setFilter] = useState('');
+  const [page, setPage] = useState(0);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return notes;
-    return notes.filter((n) =>
+    if (!q) return entries;
+    return entries.filter((n) =>
       [n.keyword, n.category, n.item].some((v) => (v || '').toLowerCase().includes(q))
     );
-  }, [notes, filter]);
+  }, [entries, filter]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const current = Math.min(page, pageCount - 1);
+  const pageEntries = filtered.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
+  const pageKey = pageEntries.map((e) => e.id).join(',');
+
+  useEffect(() => { setPage(0); }, [filter]);
+  useEffect(() => {
+    if (pageKey) ensureNotes(pageKey.split(',').map(Number)).catch(() => {});
+  }, [pageKey, ensureNotes]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -74,13 +89,35 @@ export default function DailyNoteList({ notes, onEdit, onDelete }) {
 
       {filtered.length === 0 && (
         <p className="text-sm text-gray-400 py-8 text-center">
-          {notes.length === 0 ? '아직 작성된 아이디어가 없습니다.' : '조건에 맞는 노트가 없습니다.'}
+          {entries.length === 0 ? '아직 작성된 아이디어가 없습니다.' : '조건에 맞는 노트가 없습니다.'}
         </p>
       )}
 
-      {filtered.map((note) => (
-        <NoteCard key={note.id} note={note} onEdit={onEdit} onDelete={onDelete} />
+      {pageEntries.map((entry) => (
+        notesById[entry.id]
+          ? <NoteCard key={entry.id} note={notesById[entry.id]} onEdit={onEdit} onDelete={onDelete} />
+          : <div key={entry.id} className="p-4 border rounded bg-white text-sm text-gray-400">불러오는 중…</div>
       ))}
+
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-center gap-3 py-2 text-sm">
+          <button
+            onClick={() => setPage(current - 1)}
+            disabled={current === 0}
+            className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40"
+          >
+            ◀ 이전
+          </button>
+          <span className="text-gray-500">{current + 1} / {pageCount}</span>
+          <button
+            onClick={() => setPage(current + 1)}
+            disabled={current >= pageCount - 1}
+            className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-40"
+          >
+            다음 ▶
+          </button>
+        </div>
+      )}
     </div>
   );
 }
