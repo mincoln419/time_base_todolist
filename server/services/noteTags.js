@@ -4,7 +4,15 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 // .env는 CLAUD_KEY로 저장되어 있음(오탈자) — CLAUDE_KEY도 함께 지원
 const ANTHROPIC_API_KEY = process.env.CLAUDE_KEY || process.env.CLAUD_KEY;
-const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
+// 워크스페이스에 묶이지 않은 키는 요청마다 사용할 워크스페이스를 헤더로 지정해야 한다(없으면 400).
+// 워크스페이스용 키를 쓰면 비워 둔다.
+const WORKSPACE_ID = process.env.CLAUDE_WORKSPACE_ID;
+const anthropic = ANTHROPIC_API_KEY
+  ? new Anthropic({
+      apiKey: ANTHROPIC_API_KEY,
+      ...(WORKSPACE_ID ? { defaultHeaders: { 'anthropic-workspace-id': WORKSPACE_ID } } : {}),
+    })
+  : null;
 
 class TagExtractionError extends Error {
   constructor(message, status) {

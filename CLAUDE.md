@@ -69,6 +69,7 @@ time_based_todolist/
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | 없음 (필수) | 서비스 계정 키 JSON 경로(리포 루트 기준 상대경로, 파일 자체는 gitignore됨) |
 | `DB_PATH` | `./data/todo.db` | (레거시) 마이그레이션 스크립트가 참조하는 원본 SQLite 파일 경로 |
 | `CLAUDE_KEY` (또는 `CLAUD_KEY`) | 없음 (필수 — 리포 루트 `.env`, gitignore됨) | 데일리노트 "태그추출(AI)" 기능의 Anthropic API 키 |
+| `CLAUDE_WORKSPACE_ID` | 없음 (선택) | `CLAUDE_KEY`가 워크스페이스에 묶이지 않은 키일 때 `anthropic-workspace-id` 헤더로 보낼 워크스페이스 ID. 워크스페이스용 키면 비워 둔다 |
 | `QWEN_KEY` | (필수) | 회의록 액션아이템 AI 자동생성용 API 키 — 프로젝트 루트 `.env`(gitignored)에 저장, 절대 커밋 금지 |
 | `MEETING_AI_API_URL` | Aliyun MaaS 엔드포인트로 하드코딩된 기본값 | 필요 시 `.env`에서 override |
 | `MEETING_AI_MODEL` | `qwen3.8-max` | 필요 시 `.env`에서 override |
