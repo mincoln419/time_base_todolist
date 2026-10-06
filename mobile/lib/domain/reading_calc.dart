@@ -26,6 +26,17 @@ class DailyItem {
   bool get belowTarget => pages < target && !finished;
 }
 
+/// 그날 계획 대비 수행 — 읽은 페이지 합 / 그날 목표 합.
+class DailyAchievement {
+  const DailyAchievement({required this.read, required this.target});
+
+  final int read;
+  final int target;
+
+  /// 계획이 없던 날(읽는 책이 없던 날)은 null.
+  double? get rate => target > 0 ? read / target : null;
+}
+
 /// 하루치 합계 (전체 책).
 class DailyTotal {
   DailyTotal() : items = [];
@@ -195,6 +206,21 @@ abstract final class ReadingCalc {
       }
     }
     return totals;
+  }
+
+  /// 그날 체크리스트에 있던 책들의 하루 목표 합 대비 읽은 페이지 합 (웹 `dailyAchievement`와 동일).
+  /// 완독하는 날은 남은 페이지가 목표보다 적을 수 있으니 남은 페이지까지만 목표로 본다.
+  static DailyAchievement dailyAchievement(Iterable<Book> books, DateKey date) {
+    var read = 0;
+    var target = 0;
+    for (final book in books) {
+      if (!isOnChecklist(book, date)) continue;
+      final remaining = book.totalPages - pageBefore(book, date);
+      if (remaining <= 0) continue;
+      target += remaining < book.dailyTarget ? remaining : book.dailyTarget;
+      read += pagesOn(book, date);
+    }
+    return DailyAchievement(read: read, target: target);
   }
 
   /// 연속 독서일 — 오늘 기록이 없으면 어제부터 센다.

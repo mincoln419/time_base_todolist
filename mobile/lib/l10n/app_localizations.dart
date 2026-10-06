@@ -523,8 +523,20 @@ abstract class AppLocalizations {
   /// No description provided for @heatmapCellLabel.
   ///
   /// In ko, this message translates to:
-  /// **'{date}, {pages}페이지'**
-  String heatmapCellLabel(String date, int pages);
+  /// **'{date}, {read}페이지 읽음, 목표 {target}페이지'**
+  String heatmapCellLabel(String date, int read, int target);
+
+  /// No description provided for @achievementLine.
+  ///
+  /// In ko, this message translates to:
+  /// **'{read}p / 목표 {target}p ({percent}%)'**
+  String achievementLine(int read, int target, int percent);
+
+  /// No description provided for @noPlanThatDay.
+  ///
+  /// In ko, this message translates to:
+  /// **'이날은 읽을 계획이 없었어요'**
+  String get noPlanThatDay;
 
   /// No description provided for @heatmapNoRecord.
   ///
@@ -547,13 +559,13 @@ abstract class AppLocalizations {
   /// No description provided for @legendLess.
   ///
   /// In ko, this message translates to:
-  /// **'적음'**
+  /// **'계획 대비'**
   String get legendLess;
 
   /// No description provided for @legendMore.
   ///
   /// In ko, this message translates to:
-  /// **'많음'**
+  /// **'150%+'**
   String get legendMore;
 
   /// No description provided for @dayTotal.
