@@ -1,4 +1,4 @@
-// Design Ref: §5.5 — API 키(QWEN_KEY)는 프로젝트 루트 .env(gitignored)에 저장되어 있어 명시 경로로 로드
+// Design Ref: §5.5 — API 키(CLAUDE_KEY 등)는 프로젝트 루트 .env(gitignored)에 저장되어 있어 명시 경로로 로드
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const express = require('express');

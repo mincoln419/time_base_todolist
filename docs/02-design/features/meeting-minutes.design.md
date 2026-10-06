@@ -377,6 +377,9 @@ CREATE TABLE IF NOT EXISTS meeting_action_items (
 
 ### 5.1 외부 API 연동 개요
 
+> **2026-10-06 변경**: AI 호출을 Qwen(Aliyun MaaS, `QWEN_KEY`)에서 **Claude(Anthropic)**로 교체했다. 키는 데일리노트 태그 추출과 같은 `CLAUDE_KEY`(+선택 `CLAUDE_WORKSPACE_ID`)를 `services/anthropicClient.js`로 공유하고, 기본 모델은 `claude-haiku-4-5`(`MEETING_AI_MODEL`로 변경 가능). 응답은 JSON 텍스트 파싱 대신 strict tool(`submit_action_items`) 구조화 출력으로 받는다. `QWEN_KEY`·`MEETING_AI_API_URL`은 더 이상 쓰지 않는다. 진행상황에 '완료'가 있으면 완료로 확정하는 규칙과, 쓸 항목이 없을 때 원문을 단일 항목으로 보존하는 FR-13 동작은 유지. 아래 본문은 교체 전 설계 기록이다.
+
+
 | 항목 | 값 |
 |------|-----|
 | 방식 | OpenAI 호환 Chat Completions (`POST {MEETING_AI_API_URL}`) |
