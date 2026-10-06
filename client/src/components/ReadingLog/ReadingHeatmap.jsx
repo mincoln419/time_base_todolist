@@ -1,24 +1,29 @@
 import { useMemo } from 'react';
-import { addDays, parseDate } from '../../utils/readingCalc';
+import { addDays, dailyAchievement, parseDate } from '../../utils/readingCalc';
 
 const DAY_LABELS = ['', '월', '', '수', '', '금', ''];
+// 계획 대비 수행률 → 색 단계 (시각화 구간, 100% = 그날 목표 달성)
 const LEVELS = [
-  { min: 40, className: 'bg-emerald-700' },
-  { min: 20, className: 'bg-emerald-500' },
-  { min: 10, className: 'bg-emerald-300' },
-  { min: 1, className: 'bg-emerald-100' },
+  { min: 1.5, className: 'bg-emerald-700', label: '150% 이상' },
+  { min: 1, className: 'bg-emerald-500', label: '100% 이상 (달성)' },
+  { min: 0.5, className: 'bg-emerald-300', label: '50~99%' },
+  { min: Number.MIN_VALUE, className: 'bg-emerald-100', label: '50% 미만' },
 ];
+const EMPTY = { className: 'bg-gray-100', label: '0% 또는 계획 없음' };
 
-function levelClass(pages) {
-  return LEVELS.find((level) => pages >= level.min)?.className ?? 'bg-gray-100';
+function levelOf(rate) {
+  return (rate && LEVELS.find((level) => rate >= level.min)) || EMPTY;
 }
 
-function tooltip(date, entry) {
-  if (!entry) return `${date} · 기록 없음`;
+function tooltip(date, entry, achievement) {
+  const head = achievement.target > 0
+    ? `${date} · ${achievement.read}p / 목표 ${achievement.target}p (${Math.round(achievement.rate * 100)}%)`
+    : `${date} · 계획 없음`;
+  if (!entry) return head;
   const detail = entry.items
     .map((item) => `${item.title} ${item.pages}p${item.belowTarget ? `(목표 ${item.target}p 미달)` : ''}`)
     .join(', ');
-  return `${date} · ${entry.pages}p\n${detail}`;
+  return `${head}\n${detail}`;
 }
 
 function streak(totals, today) {
@@ -31,7 +36,7 @@ function streak(totals, today) {
   return count;
 }
 
-export default function ReadingHeatmap({ totals, today, selectedDate, onSelectDate, weekCount }) {
+export default function ReadingHeatmap({ books, totals, today, selectedDate, onSelectDate, weekCount }) {
   // 이번 주 토요일에서 끝나는 weekCount주(독서기록 설정), 일요일 시작 열
   const weeks = useMemo(() => {
     const end = addDays(today, 6 - parseDate(today).getDay());
@@ -75,14 +80,15 @@ export default function ReadingHeatmap({ totals, today, selectedDate, onSelectDa
                 {days.map((date) => {
                   if (date > today) return <div key={date} className="w-3 h-3" />;
                   const entry = totals.get(date);
+                  const achievement = dailyAchievement(books, date);
                   return (
                     <button
                       key={date}
                       type="button"
-                      title={tooltip(date, entry)}
+                      title={tooltip(date, entry, achievement)}
                       onClick={() => onSelectDate(date)}
                       className={
-                        'w-3 h-3 rounded-sm ' + levelClass(entry?.pages ?? 0) +
+                        'w-3 h-3 rounded-sm ' + levelOf(achievement.rate).className +
                         (date === selectedDate ? ' ring-2 ring-blue-400' : '')
                       }
                     />
@@ -94,11 +100,11 @@ export default function ReadingHeatmap({ totals, today, selectedDate, onSelectDa
         </div>
       </div>
       <div className="mt-2 flex items-center justify-end gap-1 text-[10px] text-gray-400">
-        <span>적음</span>
-        {['bg-gray-100', 'bg-emerald-100', 'bg-emerald-300', 'bg-emerald-500', 'bg-emerald-700'].map((c) => (
-          <span key={c} className={'w-3 h-3 rounded-sm ' + c} />
+        <span>계획 대비</span>
+        {[EMPTY, ...[...LEVELS].reverse()].map((level) => (
+          <span key={level.className} title={level.label} className={'w-3 h-3 rounded-sm ' + level.className} />
         ))}
-        <span>많음</span>
+        <span>150%+</span>
       </div>
     </section>
   );

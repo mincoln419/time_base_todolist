@@ -266,9 +266,17 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String heatmapCellLabel(String date, int pages) {
-    return '$date, $pages페이지';
+  String heatmapCellLabel(String date, int read, int target) {
+    return '$date, $read페이지 읽음, 목표 $target페이지';
   }
+
+  @override
+  String achievementLine(int read, int target, int percent) {
+    return '${read}p / 목표 ${target}p ($percent%)';
+  }
+
+  @override
+  String get noPlanThatDay => '이날은 읽을 계획이 없었어요';
 
   @override
   String get heatmapNoRecord => '기록 없음';
@@ -282,10 +290,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get recordThisDay => '이 날짜 기록하기';
 
   @override
-  String get legendLess => '적음';
+  String get legendLess => '계획 대비';
 
   @override
-  String get legendMore => '많음';
+  String get legendMore => '150%+';
 
   @override
   String dayTotal(int pages) {

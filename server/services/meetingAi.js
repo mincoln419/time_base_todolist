@@ -1,99 +1,97 @@
 // Design Ref: §5.3 — 외부 LLM 호출은 라우트와 분리된 서비스로 격리 (services/notifications.js와 동일 패턴)
-// API 키는 process.env.QWEN_KEY로만 읽는다 (프로젝트 루트 .env, gitignored) — 코드에 값 하드코딩 금지
+// Claude(Anthropic)로 호출한다 — 키는 데일리노트 태그 추출과 같은 CLAUDE_KEY (services/anthropicClient.js)
+const { anthropic } = require('./anthropicClient');
 
-const DEFAULT_API_URL = 'https://ws-njn2s84z1yxzk1nf.ap-northeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions';
-const MEETING_AI_API_URL = process.env.MEETING_AI_API_URL || DEFAULT_API_URL;
-const MEETING_AI_MODEL = process.env.MEETING_AI_MODEL || 'qwen3.8-max';
+// 원문에서 항목을 뽑아 옮기는 추출 작업이라 추론이 필요 없어 저렴한 Haiku를 기본으로 쓴다
+const MEETING_AI_MODEL = process.env.MEETING_AI_MODEL || 'claude-haiku-4-5';
 const VALID_STATUSES = new Set(['대기', '진행중', '완료']);
 
 const SYSTEM_PROMPT = `당신은 회의록에서 액션아이템(후속 조치)만 추출하는 도구입니다.
-아래 회의 원문을 읽고, 각 액션아이템을 다음 필드를 가진 JSON 객체로 추출해
-JSON 배열 하나만 응답하세요. 다른 설명, 마크다운, 코드펜스는 포함하지 마세요.
+아래 회의 원문을 읽고, 각 액션아이템을 submit_action_items 도구로 제출하세요.
+각 항목의 필드:
 
 - task_type: 업무 구분(예: "Release", "MCP", "북미 SDS" 등 원문에 드러난 카테고리, 없으면 "기타")
 - content: 액션아이템 내용 (한 문장 요약)
 - status: "대기" | "진행중" | "완료" 중 하나 (원문에 "진행 중"이 있으면 "진행중", "완료"/"됨"이 있으면 "완료", 그 외 "대기")
 - due_date: 원문에 표현된 일정/기한 문구를 그대로 (예: "8/27", "금일 오후", "목요일"), 없으면 null
 - assignee: 담당자/담당 파트 (예: "BE", "지니", "박찬준"), 없으면 null
-- progress: 해당 항목의 진행상황 파트 원문을 요약하지 말고 그대로 (없으면 null)
+- progress: 해당 항목의 진행상황 파트 원문을 요약하지 말고 그대로 (없으면 null)`;
 
-예시 응답: [{"task_type":"Release","content":"3.0.1 Jackson 호환 Hotfix","status":"진행중","due_date":"진행 중","assignee":"BE","progress":"진행 중"}]`;
+const nullableString = (description) => ({ type: ['string', 'null'], description });
 
-function parseActionItems(text, rawNotes) {
-  const cleaned = String(text ?? '').replace(/```json|```/g, '').trim();
-  try {
-    const parsed = JSON.parse(cleaned);
-    const rawItems = Array.isArray(parsed) ? parsed : parsed.items;
-    const items = (rawItems ?? [])
-      .map((item) => ({
-        task_type: String(item.task_type ?? '기타').trim() || '기타',
-        content: String(item.content ?? '').trim(),
-        // 진행상황 파트에 '완료'가 있으면 LLM 판단과 무관하게 완료로 확정
-        status: String(item.progress ?? '').includes('완료')
-          ? '완료'
-          : (VALID_STATUSES.has(item.status) ? item.status : '대기'),
-        due_date: item.due_date ? String(item.due_date).trim() : null,
-        assignee: item.assignee ? String(item.assignee).trim() : null,
-      }))
-      .filter((item) => item.content);
-    if (items.length === 0) throw new Error('empty');
-    return items;
-  } catch {
-    // FR-13: 파싱 실패 시 원문을 잃지 않도록 단일 항목으로 대체 저장
-    return [{
-      task_type: '기타',
-      content: (cleaned || rawNotes).slice(0, 500),
-      status: '대기',
-      due_date: null,
-      assignee: null,
-    }];
-  }
+const SUBMIT_TOOL = {
+  name: 'submit_action_items',
+  description: '회의 원문에서 추출한 액션아이템 목록을 제출한다',
+  strict: true,
+  input_schema: {
+    type: 'object',
+    properties: {
+      items: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            task_type: { type: 'string', description: '업무 구분, 없으면 "기타"' },
+            content: { type: 'string', description: '액션아이템 내용 (한 문장 요약)' },
+            status: { type: 'string', enum: ['대기', '진행중', '완료'] },
+            due_date: nullableString('원문에 표현된 일정/기한 문구 그대로'),
+            assignee: nullableString('담당자/담당 파트'),
+            progress: nullableString('진행상황 파트 원문 그대로'),
+          },
+          required: ['task_type', 'content', 'status', 'due_date', 'assignee', 'progress'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['items'],
+    additionalProperties: false,
+  },
+};
+
+function aiError(message, status) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+// LLM이 낸 항목을 정리한다. 쓸 만한 항목이 하나도 없으면(FR-13) 원문을 잃지 않도록 단일 항목으로 대체 저장.
+function normalizeItems(rawItems, rawNotes) {
+  const items = (Array.isArray(rawItems) ? rawItems : [])
+    .map((item) => ({
+      task_type: String(item.task_type ?? '기타').trim() || '기타',
+      content: String(item.content ?? '').trim(),
+      // 진행상황 파트에 '완료'가 있으면 LLM 판단과 무관하게 완료로 확정
+      status: String(item.progress ?? '').includes('완료')
+        ? '완료'
+        : (VALID_STATUSES.has(item.status) ? item.status : '대기'),
+      due_date: item.due_date ? String(item.due_date).trim() : null,
+      assignee: item.assignee ? String(item.assignee).trim() : null,
+    }))
+    .filter((item) => item.content);
+  if (items.length > 0) return items;
+  return [{ task_type: '기타', content: rawNotes.slice(0, 500), status: '대기', due_date: null, assignee: null }];
 }
 
 async function generateActionItems(notes) {
-  const apiKey = process.env.QWEN_KEY;
-  if (!apiKey || !MEETING_AI_API_URL) {
-    const err = new Error('AI 기능이 설정되지 않았습니다. 서버 관리자에게 문의해주세요.');
-    err.status = 500;
-    throw err;
-  }
+  if (!anthropic) throw aiError('AI 기능이 설정되지 않았습니다. 서버 관리자에게 문의해주세요.', 500);
 
   let response;
   try {
-    response = await fetch(MEETING_AI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: MEETING_AI_MODEL,
-        // 원인: "thinking" 모드가 켜져 있으면 응답에 30초~2분(때로는 그 이상) 걸리고,
-        // 그사이 업스트림 게이트웨이가 자체 타임아웃으로 502를 반환하는 현상을 실측 확인.
-        // 이 작업은 단순 추출이라 reasoning이 불필요하므로 꺼서 지연/502를 근본적으로 줄인다(3~4초로 단축 확인).
-        enable_thinking: false,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: notes },
-        ],
-      }),
+    response = await anthropic.messages.create({
+      model: MEETING_AI_MODEL,
+      max_tokens: 8192,
+      system: SYSTEM_PROMPT,
+      tools: [SUBMIT_TOOL],
+      tool_choice: { type: 'tool', name: SUBMIT_TOOL.name },
+      messages: [{ role: 'user', content: notes }],
     });
   } catch (e) {
-    console.error('[meetingAi] 호출 실패:', e.message);
-    const err = new Error('AI 액션아이템 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-    err.status = 502;
-    throw err;
+    console.error('[meetingAi] 호출 실패:', e.status ?? '', e.message);
+    throw aiError('AI 액션아이템 생성에 실패했습니다. 잠시 후 다시 시도해주세요.', 502);
   }
 
-  if (!response.ok) {
-    console.error(`[meetingAi] 응답 오류: ${response.status}`);
-    // 바디를 읽지 않으면 undici가 커넥션을 풀에 반환하지 못해 소켓이 계속 쌓인다
-    await response.text().catch(() => {});
-    const err = new Error('AI 액션아이템 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-    err.status = 502;
-    throw err;
-  }
-
-  const data = await response.json();
-  const text = data.choices?.[0]?.message?.content ?? '';
-  return parseActionItems(text, notes);
+  const toolUse = response.content.find((block) => block.type === 'tool_use');
+  return normalizeItems(toolUse?.input?.items, notes);
 }
 
 module.exports = { generateActionItems };

@@ -5,13 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
 import '../../app/router.dart';
 import '../../core/messages.dart';
+import '../../domain/book.dart';
 import '../../domain/date_key.dart';
 import '../../domain/reading_calc.dart';
 import '../../l10n/app_localizations.dart';
 
 /// 그날 전체 페이지 합 → 색 단계 경계 (웹 ReadingHeatmap과 같은 초기값, Design §8.3).
 /// 도메인 규칙이 아닌 시각화 구간이라 한 곳에 모아 둔다.
-const _levelThresholds = [1, 10, 20, 40];
+/// 계획 대비 수행률 → 색 단계 경계 (시각화 구간, 1.0 = 그날 목표 달성). 0%·계획 없음은 가장 옅은 색.
+const _rateThresholds = [0.5, 1.0, 1.5];
 const _cellSize = 14.0;
 const _cellGap = 3.0;
 
@@ -56,7 +58,7 @@ class HeatmapScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              _HeatmapGrid(totals: totals, today: today, weeks: weeks),
+              _HeatmapGrid(books: snap.books, totals: totals, today: today, weeks: weeks),
               const SizedBox(height: 12),
               const _Legend(),
               const SizedBox(height: 24),
@@ -69,17 +71,19 @@ class HeatmapScreen extends ConsumerWidget {
   }
 }
 
-Color _levelColor(ColorScheme scheme, int pages) {
-  var level = 0;
-  for (final threshold in _levelThresholds) {
-    if (pages >= threshold) level += 1;
+Color _levelColor(ColorScheme scheme, double? rate) {
+  if (rate == null || rate <= 0) return scheme.surfaceContainerHighest;
+  var level = 1;
+  for (final threshold in _rateThresholds) {
+    if (rate >= threshold) level += 1;
   }
-  if (level == 0) return scheme.surfaceContainerHighest;
-  return scheme.primary.withValues(alpha: 0.25 + 0.75 * (level / _levelThresholds.length));
+  return scheme.primary.withValues(alpha: 0.25 + 0.75 * (level / (_rateThresholds.length + 1)));
 }
 
 class _HeatmapGrid extends StatelessWidget {
-  const _HeatmapGrid({required this.totals, required this.today, required this.weeks});
+  const _HeatmapGrid({required this.books, required this.totals, required this.today, required this.weeks});
+
+  final List<Book> books;
 
   final Map<DateKey, DailyTotal> totals;
   final DateKey today;
@@ -120,19 +124,19 @@ class _HeatmapGrid extends StatelessWidget {
   Widget _cell(BuildContext context, ColorScheme scheme, DateKey date) {
     if (date > today) return const SizedBox(width: _cellSize, height: _cellSize + _cellGap);
     final l10n = AppLocalizations.of(context);
-    final pages = totals[date]?.pages ?? 0;
+    final achievement = ReadingCalc.dailyAchievement(books, date);
     return Padding(
       padding: const EdgeInsets.only(bottom: _cellGap),
       child: Semantics(
         button: true,
-        label: l10n.heatmapCellLabel(formatFullDate(date), pages),
+        label: l10n.heatmapCellLabel(formatFullDate(date), achievement.read, achievement.target),
         child: GestureDetector(
           onTap: () => _showDay(context, date),
           child: Container(
             width: _cellSize,
             height: _cellSize,
             decoration: BoxDecoration(
-              color: _levelColor(scheme, pages),
+              color: _levelColor(scheme, achievement.rate),
               borderRadius: BorderRadius.circular(3),
               border: date == today ? Border.all(color: scheme.outline) : null,
             ),
@@ -145,6 +149,8 @@ class _HeatmapGrid extends StatelessWidget {
   void _showDay(BuildContext context, DateKey date) {
     final l10n = AppLocalizations.of(context);
     final total = totals[date];
+    final achievement = ReadingCalc.dailyAchievement(books, date);
+    final rate = achievement.rate;
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => Consumer(
@@ -156,6 +162,12 @@ class _HeatmapGrid extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(formatDayHeader(date), style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  rate == null
+                      ? l10n.noPlanThatDay
+                      : l10n.achievementLine(achievement.read, achievement.target, (rate * 100).round()),
+                ),
                 const SizedBox(height: 8),
                 if (total == null) Text(l10n.heatmapNoRecord),
                 for (final item in total?.items ?? const <DailyItem>[])
@@ -261,18 +273,18 @@ class _Legend extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final samples = [0, ..._levelThresholds];
+    final samples = <double>[0, 0.25, ..._rateThresholds];
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(l10n.legendLess, style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(width: 4),
-        for (final pages in samples)
+        for (final rate in samples)
           Container(
             width: _cellSize,
             height: _cellSize,
             margin: const EdgeInsets.symmetric(horizontal: 1.5),
-            decoration: BoxDecoration(color: _levelColor(scheme, pages), borderRadius: BorderRadius.circular(3)),
+            decoration: BoxDecoration(color: _levelColor(scheme, rate), borderRadius: BorderRadius.circular(3)),
           ),
         const SizedBox(width: 4),
         Text(l10n.legendMore, style: Theme.of(context).textTheme.labelSmall),
