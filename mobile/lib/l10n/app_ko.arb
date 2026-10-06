@@ -258,17 +258,35 @@
       }
     }
   },
-  "heatmapCellLabel": "{date}, {pages}페이지",
+  "heatmapCellLabel": "{date}, {read}페이지 읽음, 목표 {target}페이지",
   "@heatmapCellLabel": {
     "placeholders": {
       "date": {
         "type": "String"
       },
-      "pages": {
+      "read": {
+        "type": "int"
+      },
+      "target": {
         "type": "int"
       }
     }
   },
+  "achievementLine": "{read}p / 목표 {target}p ({percent}%)",
+  "@achievementLine": {
+    "placeholders": {
+      "read": {
+        "type": "int"
+      },
+      "target": {
+        "type": "int"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "noPlanThatDay": "이날은 읽을 계획이 없었어요",
   "heatmapNoRecord": "기록 없음",
   "heatmapItem": "{title} {pages}p",
   "@heatmapItem": {
@@ -282,8 +300,8 @@
     }
   },
   "recordThisDay": "이 날짜 기록하기",
-  "legendLess": "적음",
-  "legendMore": "많음",
+  "legendLess": "계획 대비",
+  "legendMore": "150%+",
   "dayTotal": "총 {pages}p",
   "@dayTotal": {
     "placeholders": {

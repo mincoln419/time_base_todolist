@@ -99,6 +99,22 @@ export function isOnChecklist(book, date) {
   return true;
 }
 
+// 그날 계획 대비 수행 — 그날 체크리스트에 있던 책들의 하루 목표 합 대비 읽은 페이지 합.
+// 완독하는 날은 남은 페이지가 목표보다 적을 수 있으니 남은 페이지까지만 목표로 본다.
+// 계획이 없던 날(읽는 책이 없던 날)은 rate가 null.
+export function dailyAchievement(books, date) {
+  let read = 0;
+  let target = 0;
+  for (const book of books) {
+    if (!isOnChecklist(book, date)) continue;
+    const remaining = book.total_pages - pageBefore(book, date);
+    if (remaining <= 0) continue;
+    target += Math.min(book.daily_target, remaining);
+    read += pagesOn(book, date);
+  }
+  return { read, target, rate: target > 0 ? read / target : null };
+}
+
 // 시작일 ~ 어제(완독일 이전) 중 기록이 없는 날 수
 export function missedDays(book, today) {
   let end = addDays(today, -1);

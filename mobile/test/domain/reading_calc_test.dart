@@ -156,6 +156,17 @@ void main() {
       expect(ReadingCalc.dailyTotals([b])[d('2026-09-24')]!.pages, 10);
     });
 
+    test('계획 대비 수행률 (웹 dailyAchievement와 같은 시나리오)', () {
+      final a = book(id: 'a', start: 0, startDate: '2026-10-01', logs: {'2026-10-02': 20, '2026-10-03': 25});
+      final b = book(id: 'b', total: 100, start: 95, startDate: '2026-10-01', target: 20, logs: {'2026-10-03': 100});
+      DailyAchievement on(String date) => ReadingCalc.dailyAchievement([a, b], d(date));
+      expect([on('2026-10-01').read, on('2026-10-01').target, on('2026-10-01').rate], [0, 15, 0]); // A 10 + B 남은 5
+      expect([on('2026-10-02').read, on('2026-10-02').target], [20, 15]);
+      expect([on('2026-10-03').read, on('2026-10-03').target], [10, 15]); // B 완독일엔 남은 5가 목표
+      expect([on('2026-10-04').read, on('2026-10-04').target], [0, 10]); // B 완독 이후 제외
+      expect(ReadingCalc.dailyAchievement([a], d('2026-09-30')).rate, isNull); // 시작 전 = 계획 없음
+    });
+
     test('streak: 오늘 기록 없으면 어제부터', () {
       final b = book(start: 0, startDate: '2026-09-20', logs: {'2026-09-22': 10, '2026-09-23': 20});
       final totals = ReadingCalc.dailyTotals([b]);
