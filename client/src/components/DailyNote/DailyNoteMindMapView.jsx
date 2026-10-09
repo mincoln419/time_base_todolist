@@ -57,6 +57,10 @@ function normalize(s) {
 // 키워드 그래프 — 노드는 키워드, 같은 노트(타이틀)에 함께 붙은 키워드끼리 연결한다.
 // 같은 키워드는 대소문자·앞뒤 공백을 무시하고 하나로 합치고(표시는 처음 나온 표기),
 // 여러 노트에서 함께 쓰일수록 연결 가중치(weight)가 커진다.
+// 마인드맵에서 빼는 키워드 — 독서기록 메모마다 자동으로 붙는 출처 태그라 모든 독서 메모를 한 덩어리로
+// 묶어 버려 관계를 흐린다(server/routes/reading.js의 NOTE_SOURCE_TAG와 같은 값). 노트 카드에는 그대로 보인다.
+const EXCLUDED_KEYWORDS = new Set(['오늘의독서']);
+
 function buildKeywordGraph(notes) {
   const nodes = new Map(); // key → { id, label, noteIds }
   const links = new Map(); // "a\u0000b" → { source, target, weight }
@@ -64,7 +68,7 @@ function buildKeywordGraph(notes) {
     const keys = [];
     for (const label of noteKeywords(note)) {
       const key = normalize(label);
-      if (!key || keys.includes(key)) continue;
+      if (!key || keys.includes(key) || EXCLUDED_KEYWORDS.has(key)) continue;
       keys.push(key);
       if (!nodes.has(key)) nodes.set(key, { id: key, label, noteIds: [] });
       nodes.get(key).noteIds.push(note.id);
