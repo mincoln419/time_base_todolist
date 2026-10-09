@@ -48,6 +48,18 @@
   .markdown-body hr {
     @apply my-3 border-gray-200;
   }
+  /* GFM 표 — Tailwind preflight가 표 테두리·여백을 지우므로 칸마다 선과 여백을 다시 준다.
+     넓은 표는 노트 영역을 넘지 않고 가로로 스크롤한다. */
+  .markdown-body table {
+    @apply block w-max max-w-full overflow-x-auto border-collapse;
+  }
+  .markdown-body th,
+  .markdown-body td {
+    @apply border border-gray-300 px-3 py-2 text-left align-top;
+  }
+  .markdown-body th {
+    @apply bg-gray-50 font-semibold text-gray-800;
+  }
   .markdown-body li:has(> input[type='checkbox']:first-child) {
     list-style: none;
     margin-left: -1.25em;
