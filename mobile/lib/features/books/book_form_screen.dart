@@ -30,6 +30,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
   late DateKey _startDate = ref.read(todayProvider);
   DateKey? _dueDate;
   bool _initialized = false;
+  bool _submitted = false; // 저장 버튼 연속 탭으로 책이 두 권 생기지 않도록 한 번만 처리
   String? _error;
 
   Book? get _existing {
@@ -96,6 +97,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
   }
 
   void _submit() {
+    if (_submitted) return;
     final l10n = AppLocalizations.of(context);
     final repo = ref.read(bookRepositoryProvider);
     if (repo == null) return;
@@ -105,6 +107,7 @@ class _BookFormScreenState extends ConsumerState<BookFormScreen> {
       setState(() => _error = validationMessage(error, l10n));
       return;
     }
+    _submitted = true;
     if (existing == null) {
       reportWriteErrors(repo.addBook(_input).write, l10n);
     } else {
