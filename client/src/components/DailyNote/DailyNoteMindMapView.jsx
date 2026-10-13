@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { packSiblings, packEnclose } from 'd3-hierarchy';
 import { noteLabel, noteKeywords, renderNoteMarkdown } from './noteUtils';
 
@@ -14,14 +14,13 @@ const NODE_R = 22;
 const LABEL_MAX = 10;
 const DRAG_CLICK_THRESHOLD = 4; // px — 이보다 적게 움직이면 드래그가 아니라 클릭으로 취급
 
-// 연결이 하나도 없는 노드는 글자 크기와 비슷한 점(DOT_R = 4px)에 가깝게 그린다.
-// 이 최초 노드 크기(DOT_R) 자체를 한 단위로 삼아, 엣지가 EDGES_PER_STEP(3)개 늘어날
-// 때마다 그 단위만큼 계단식으로 커진다: 4px(0개) → 8px(1~3개) → 12px(4~6개) → 16px(7~9개)...
+// 키워드 노드 크기 = 그 키워드가 달린 노트 수(나온 횟수). 한 번 나온 키워드는 글자 크기와 비슷한
+// 점(DOT_R)으로 그리고, 여러 번 나올수록 커진다. 면적이 횟수에 비례하도록 반지름은 제곱근으로 키워
+// "오늘의독서"처럼 아주 자주 나오는 키워드도 화면을 덮을 만큼 커지지 않게 한다.
 const DOT_R = 4;
-const EDGES_PER_STEP = 3;
-function visualRadius(deg) {
-  const tier = Math.ceil(deg / EDGES_PER_STEP);
-  return DOT_R * (1 + tier);
+const RADIUS_PER_SQRT_COUNT = 5;
+function visualRadius(count) {
+  return DOT_R + RADIUS_PER_SQRT_COUNT * Math.sqrt(Math.max(0, count - 1));
 }
 
 // 노드 수가 많아지면 한눈에 다 보이도록 반지름을 비율적으로 줄인다.
@@ -36,8 +35,8 @@ function crowdScale(count) {
 const MIN_CLUSTER_RADIUS = 28; // 가장 안쪽 원의 최소 반지름
 const CLUSTER_PADDING = 24; // 클러스터끼리 팩킹할 때 서로 맞닿지 않도록 두는 여유
 
-// 연결 많은 순으로 정렬해 20/40/60/80/100 백분위 구간(최대 5단계)으로 나누고, 안쪽 원부터
-// 바깥 원으로 갈수록 연결이 적은 노드를 배치하는 "그라데이션" 동심원 구조.
+// 많이 나온 키워드 순으로 정렬해 20/40/60/80/100 백분위 구간(최대 5단계)으로 나누고, 안쪽 원부터
+// 바깥 원으로 갈수록 적게 나온 키워드를 배치하는 "그라데이션" 동심원 구조.
 // 노드가 적은 클러스터는 단계 수를 그만큼 줄여, 빈 단계 없이 자연스럽게 이어지게 한다.
 const TIER_COUNT = 5;
 // 같은 원 위 인접 노드 사이의 최소 호 길이 — 원끼리 다닥다닥 붙지 않고 라벨(글자)까지
@@ -51,38 +50,39 @@ const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
 const ZOOM_STEP = 0.2;
 
-// 선택한 노드의 1뎁스 연결 목록 — 기본 2줄 정도만 보이고 "더보기"로 펼치는 컨테이너 높이.
-// TaskBacklog.jsx의 접기 UI/UX(같은 임계값 검사·같은 버튼 문구)를 그대로 재사용한다.
-const NEIGHBOR_COLLAPSED_HEIGHT = 200;
-
 function normalize(s) {
   return (s || '').trim().toLowerCase();
 }
 
-function keywordSet(note) {
-  return new Set(noteKeywords(note).map(normalize));
-}
+// 키워드 그래프 — 노드는 키워드, 같은 노트(타이틀)에 함께 붙은 키워드끼리 연결한다.
+// 같은 키워드는 대소문자·앞뒤 공백을 무시하고 하나로 합치고(표시는 처음 나온 표기),
+// 여러 노트에서 함께 쓰일수록 연결 가중치(weight)가 커진다.
+// 마인드맵에서 빼는 키워드 — 독서기록 메모마다 자동으로 붙는 출처 태그라 모든 독서 메모를 한 덩어리로
+// 묶어 버려 관계를 흐린다(server/routes/reading.js의 NOTE_SOURCE_TAG와 같은 값). 노트 카드에는 그대로 보인다.
+const EXCLUDED_KEYWORDS = new Set(['오늘의독서']);
 
-function hasIntersection(a, b) {
-  for (const v of a) {
-    if (b.has(v)) return true;
-  }
-  return false;
-}
-
-// Design Ref: daily-idea-note.design.md §5.5 — 카테고리 일치 또는 키워드 교집합이면 연결
-function buildLinks(notes) {
-  const sets = notes.map(keywordSet);
-  const categories = notes.map((n) => normalize(n.category));
-  const links = [];
-  for (let i = 0; i < notes.length; i++) {
-    for (let j = i + 1; j < notes.length; j++) {
-      const sameCategory = categories[i] && categories[i] === categories[j];
-      const sharedKeyword = hasIntersection(sets[i], sets[j]);
-      if (sameCategory || sharedKeyword) links.push({ source: notes[i].id, target: notes[j].id });
+function buildKeywordGraph(notes) {
+  const nodes = new Map(); // key → { id, label, noteIds }
+  const links = new Map(); // "a\u0000b" → { source, target, weight }
+  for (const note of notes) {
+    const keys = [];
+    for (const label of noteKeywords(note)) {
+      const key = normalize(label);
+      if (!key || keys.includes(key) || EXCLUDED_KEYWORDS.has(key)) continue;
+      keys.push(key);
+      if (!nodes.has(key)) nodes.set(key, { id: key, label, noteIds: [] });
+      nodes.get(key).noteIds.push(note.id);
+    }
+    for (let i = 0; i < keys.length; i++) {
+      for (let j = i + 1; j < keys.length; j++) {
+        const [a, b] = keys[i] < keys[j] ? [keys[i], keys[j]] : [keys[j], keys[i]];
+        const pair = `${a}\u0000${b}`;
+        if (!links.has(pair)) links.set(pair, { source: a, target: b, weight: 0 });
+        links.get(pair).weight += 1;
+      }
     }
   }
-  return links;
+  return { nodes: [...nodes.values()], links: [...links.values()] };
 }
 
 function truncate(label) {
@@ -121,10 +121,10 @@ function findClusters(notes, links) {
 
 // 클러스터별로 노드를 원 위에 균등한 각도로 배치하고, 클러스터들은 서로 겹치지 않게
 // packSiblings로 팩킹한 뒤 캔버스 중앙으로 옮긴다 — 물리 시뮬레이션 없는 결정론적 레이아웃.
-function computeLayout(notes, links, degree, scale) {
+function computeLayout(notes, links, counts, scale) {
   const clusters = findClusters(notes, links);
 
-  const radiusOf = (id) => visualRadius(degree[id] ?? 0) * scale;
+  const radiusOf = (id) => visualRadius(counts[id] ?? 1) * scale;
 
   const packInput = clusters.map((noteIds) => {
     const localPositions = new Map();
@@ -134,9 +134,9 @@ function computeLayout(notes, links, degree, scale) {
       return { noteIds, localPositions, r: radiusOf(noteIds[0]) + CLUSTER_PADDING };
     }
 
-    // 연결 많은 순으로 정렬해 누적 백분위(20/40/60/80/100%) 기준 최대 5단계로 나눈다.
+    // 많이 나온 키워드 순으로 정렬해 누적 백분위(20/40/60/80/100%) 기준 최대 5단계로 나눈다.
     // 노드가 적으면 단계 수도 그만큼 줄여(예: 2개면 2단계) 빈 단계가 생기지 않게 한다.
-    const sorted = [...noteIds].sort((a, b) => (degree[b] ?? 0) - (degree[a] ?? 0));
+    const sorted = [...noteIds].sort((a, b) => (counts[b] ?? 1) - (counts[a] ?? 1));
     const n = sorted.length;
     const tierCount = Math.min(TIER_COUNT, n);
     const tiers = Array.from({ length: tierCount }, () => []);
@@ -244,9 +244,14 @@ function ConnectedNoteCard({ note, onEdit, onDelete }) {
   );
 }
 
-// 그래프는 제목·태그 인덱스(entries)만으로 그리고, 선택한 노트와 연결된 노트만 본문을 읽는다
-export default function DailyNoteMindMapView({ entries: notes, notesById, ensureNotes, onEdit, onDelete }) {
-  const links = useMemo(() => buildLinks(notes), [notes]);
+// 키워드를 노드로 그린다 — 같은 노트에 함께 붙은 키워드끼리 연결.
+// 그래프는 제목·태그 인덱스(entries)만으로 그리고, 선택한 키워드의 노트만(한 번에 NOTES_STEP개씩) 본문을 읽는다.
+const NOTES_STEP = 10;
+
+export default function DailyNoteMindMapView({ entries, notesById, ensureNotes, onEdit, onDelete }) {
+  const graph = useMemo(() => buildKeywordGraph(entries), [entries]);
+  const notes = graph.nodes; // 레이아웃 엔진은 { id }를 가진 노드 목록을 받는다
+  const links = graph.links;
   const degree = useMemo(() => {
     const d = {};
     notes.forEach((n) => { d[n.id] = 0; });
@@ -256,8 +261,10 @@ export default function DailyNoteMindMapView({ entries: notes, notesById, ensure
     });
     return d;
   }, [notes, links]);
+  // 노드 크기·동심원 배치 기준 — 키워드가 나온 횟수(그 키워드가 달린 노트 수)
+  const counts = useMemo(() => Object.fromEntries(notes.map((n) => [n.id, n.noteIds.length])), [notes]);
   const scale = crowdScale(notes.length);
-  const layout = useMemo(() => computeLayout(notes, links, degree, scale), [notes, links, degree, scale]);
+  const layout = useMemo(() => computeLayout(notes, links, counts, scale), [notes, links, counts, scale]);
 
   const nodesByIdRef = useRef(new Map());
   const dragRef = useRef(null); // { id, moved, offsetX, offsetY }
@@ -266,18 +273,19 @@ export default function DailyNoteMindMapView({ entries: notes, notesById, ensure
   const [selectedId, setSelectedId] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [hoveredId, setHoveredId] = useState(null);
+  const [visibleNotes, setVisibleNotes] = useState(NOTES_STEP);
 
-  // notes/links가 바뀔 때마다(추가/수정/삭제) 레이아웃을 새로 계산해 덮어쓴다 — 드래그로
+  // 키워드/연결이 바뀔 때마다(노트 추가/수정/삭제) 레이아웃을 새로 계산해 덮어쓴다 — 드래그로
   // 옮겼던 위치는 유지하지 않고 항상 자동 배치로 되돌아간다("균형 잡힌 구조"를 계속 보장).
   useEffect(() => {
     const next = new Map();
-    for (const note of notes) {
-      const p = layout.get(note.id) ?? { x: CANVAS_W / 2, y: CANVAS_H / 2 };
-      next.set(note.id, { id: note.id, x: p.x, y: p.y });
+    for (const node of notes) {
+      const p = layout.get(node.id) ?? { x: CANVAS_W / 2, y: CANVAS_H / 2 };
+      next.set(node.id, { id: node.id, x: p.x, y: p.y });
     }
     nodesByIdRef.current = next;
     setTick((t) => t + 1);
-  }, [layout]);
+  }, [layout, notes]);
 
   // 확대(zoom) 중에는 svg viewBox가 CANVAS_W x CANVAS_H의 일부만 보여주므로,
   // 화면 좌표 → 캔버스 좌표 변환도 현재 뷰포트(viewX/Y/W/H) 기준으로 다시 계산해야 한다.
@@ -295,13 +303,12 @@ export default function DailyNoteMindMapView({ entries: notes, notesById, ensure
   }, [viewX, viewY, viewW, viewH]);
 
   // 드래그는 순수하게 그 노드만 옮긴다 — 연결된 다른 노드에는 전혀 영향을 주지 않는다.
-  // 다음에 notes/links가 바뀌면 위 useEffect가 다시 자동 배치로 되돌린다.
-  const handlePointerDown = (noteId) => (e) => {
+  const handlePointerDown = (nodeId) => (e) => {
     e.stopPropagation();
-    const node = nodesByIdRef.current.get(noteId);
+    const node = nodesByIdRef.current.get(nodeId);
     if (!node) return;
     const p = toCanvasPoint(e);
-    dragRef.current = { id: noteId, moved: 0, offsetX: p.x - node.x, offsetY: p.y - node.y };
+    dragRef.current = { id: nodeId, moved: 0, offsetX: p.x - node.x, offsetY: p.y - node.y };
     setHoveredId(null); // 드래그 중에는 툴팁이 손가락/커서를 따라다니며 거슬리지 않도록 숨김
   };
 
@@ -319,63 +326,62 @@ export default function DailyNoteMindMapView({ entries: notes, notesById, ensure
     setTick((t) => t + 1);
   };
 
-  const endDrag = (noteId) => () => {
+  const selectKeyword = (id) => {
+    setSelectedId(id);
+    setVisibleNotes(NOTES_STEP);
+  };
+
+  const endDrag = (nodeId) => () => {
     const drag = dragRef.current;
     if (!drag) return;
     dragRef.current = null;
-    if (drag.moved < DRAG_CLICK_THRESHOLD) setSelectedId(noteId);
+    if (drag.moved < DRAG_CLICK_THRESHOLD) selectKeyword(nodeId);
   };
 
-  const selectedEntry = notes.find((n) => n.id === selectedId) ?? null;
-  const selectedNote = selectedEntry ? notesById[selectedEntry.id] ?? selectedEntry : null;
+  const selectedKeyword = notes.find((n) => n.id === selectedId) ?? null;
 
-  // 선택한 노드와 1뎁스로 연결된 노트 목록 — 목록 뷰와 동일한 카드로 하단에 쭉 보여준다.
-  const neighborNotes = useMemo(() => {
+  // 선택한 키워드와 함께 쓰인 키워드 — 함께 쓰인 노트가 많은 순
+  const relatedKeywords = useMemo(() => {
     if (!selectedId) return [];
-    const neighborIds = new Set();
-    for (const link of links) {
-      if (link.source === selectedId) neighborIds.add(link.target);
-      else if (link.target === selectedId) neighborIds.add(link.source);
-    }
-    return notes.filter((n) => neighborIds.has(n.id)).map((n) => notesById[n.id] ?? n);
-  }, [selectedId, links, notes, notesById]);
+    const byId = new Map(notes.map((n) => [n.id, n]));
+    return links
+      .filter((l) => l.source === selectedId || l.target === selectedId)
+      .map((l) => ({ node: byId.get(l.source === selectedId ? l.target : l.source), weight: l.weight }))
+      .filter((r) => r.node)
+      .sort((a, b) => b.weight - a.weight || a.node.label.localeCompare(b.node.label));
+  }, [selectedId, links, notes]);
 
-  // 선택이 바뀌면 그 노트와 연결된 노트의 본문만 읽는다
-  const detailKey = selectedId ? [selectedId, ...neighborNotes.map((n) => n.id)].join(',') : '';
+  // 선택한 키워드가 달린 노트(최신순) — 보이는 만큼만 본문을 읽는다
+  const keywordEntries = useMemo(() => {
+    if (!selectedKeyword) return [];
+    const ids = new Set(selectedKeyword.noteIds);
+    return entries.filter((e) => ids.has(e.id)); // entries는 이미 최신순
+  }, [selectedKeyword, entries]);
+  const shownEntries = keywordEntries.slice(0, visibleNotes);
+  const shownKey = shownEntries.map((e) => e.id).join(',');
   useEffect(() => {
-    if (detailKey) ensureNotes(detailKey.split(',').map(Number)).catch(() => {});
-  }, [detailKey, ensureNotes]);
+    if (shownKey) ensureNotes(shownKey.split(',').map(Number)).catch(() => {});
+  }, [shownKey, ensureNotes]);
 
-  const [neighborsExpanded, setNeighborsExpanded] = useState(false);
-  const [neighborsOverflowing, setNeighborsOverflowing] = useState(false);
-  const neighborListRef = useRef(null);
-
-  // 다른 노드를 선택하면 목록도 다시 접힌 상태로 시작한다.
-  useEffect(() => setNeighborsExpanded(false), [selectedId]);
-
-  // TaskBacklog.jsx와 동일한 방식 — 실제로 2줄보다 많이 잘릴 때만 더보기/접기 버튼을 보여준다.
-  useLayoutEffect(() => {
-    const el = neighborListRef.current;
-    if (!el) return;
-    setNeighborsOverflowing(el.scrollHeight > NEIGHBOR_COLLAPSED_HEIGHT + 1);
-  }, [neighborNotes]);
+  // 노트 삭제 등으로 선택한 키워드가 사라지면 선택 해제
+  useEffect(() => {
+    if (selectedId && !selectedKeyword) setSelectedId(null);
+  }, [selectedId, selectedKeyword]);
 
   if (notes.length === 0) {
-    return <p className="text-sm text-gray-400 py-8 text-center">아직 작성된 아이디어가 없습니다.</p>;
+    return <p className="text-sm text-gray-400 py-8 text-center">키워드가 달린 노트가 없습니다.</p>;
   }
 
-  // 호버된 노드의 키워드 툴팁 위치 — 노드 위쪽 중앙에 띄우되, 현재 확대 뷰포트를 벗어나지
-  // 않도록 clamp한다.
+  // 호버된 키워드의 요약 툴팁 위치 — 노드 위쪽 중앙에 띄우되, 현재 확대 뷰포트를 벗어나지 않도록 clamp한다.
   const TOOLTIP_W = 160;
   const hoveredNode = hoveredId ? nodesByIdRef.current.get(hoveredId) : null;
-  const hoveredNoteData = hoveredId ? notes.find((n) => n.id === hoveredId) : null;
-  const hoveredKeywords = hoveredNoteData ? noteKeywords(hoveredNoteData) : [];
+  const hoveredKeyword = hoveredId ? notes.find((n) => n.id === hoveredId) : null;
   let tooltipX = 0;
   let tooltipY = 0;
   if (hoveredNode) {
-    const hoveredR = visualRadius(degree[hoveredId] ?? 0) * scale;
+    const hoveredR = visualRadius(counts[hoveredId] ?? 1) * scale;
     tooltipX = Math.min(Math.max(hoveredNode.x - TOOLTIP_W / 2, viewX + 4), viewX + viewW - TOOLTIP_W - 4);
-    tooltipY = Math.max(hoveredNode.y - hoveredR - 46, viewY + 4);
+    tooltipY = Math.max(hoveredNode.y - hoveredR - 34, viewY + 4);
   }
 
   return (
@@ -409,7 +415,7 @@ export default function DailyNoteMindMapView({ entries: notes, notesById, ensure
           onPointerUp={() => { dragRef.current = null; }}
           onPointerLeave={() => { dragRef.current = null; }}
         >
-          {links.map((link, i) => {
+          {links.map((link) => {
             const a = nodesByIdRef.current.get(link.source);
             const b = nodesByIdRef.current.get(link.target);
             if (!a || !b) return null;
@@ -418,34 +424,34 @@ export default function DailyNoteMindMapView({ entries: notes, notesById, ensure
             // 양 끝 노드 중 드래그 중인 노드가 있으면 그 끝은 커서와 함께 즉시 움직여야 하므로
             // transition을 걸지 않는다 — 그래야 원(위에서 transition 적용)과 선이 따로 놀지 않는다.
             const isDraggingEndpoint = a.id === draggedId || b.id === draggedId;
+            // 여러 노트에서 함께 쓰인 키워드일수록 선을 굵게 (최대 +4px)
+            const width = 1.5 + Math.min(link.weight - 1, 4);
             return (
               <line
-                key={i}
+                key={`${link.source}\u0000${link.target}`}
                 x1={a.x} y1={a.y} x2={b.x} y2={b.y}
                 stroke={touchesSelected ? '#93c5fd' : '#e2e8f0'}
-                strokeWidth={touchesSelected ? 2.5 : 1.5}
+                strokeWidth={touchesSelected ? width + 1 : width}
                 style={{ transition: isDraggingEndpoint ? 'none' : 'x1 200ms ease-out, y1 200ms ease-out, x2 200ms ease-out, y2 200ms ease-out' }}
               />
             );
           })}
-          {notes.map((note) => {
-            const node = nodesByIdRef.current.get(note.id);
+          {notes.map((keyword) => {
+            const node = nodesByIdRef.current.get(keyword.id);
             if (!node) return null;
-            const isSelected = note.id === selectedId;
-            const r = visualRadius(degree[note.id] ?? 0) * scale;
+            const isSelected = keyword.id === selectedId;
+            const r = visualRadius(counts[keyword.id] ?? 1) * scale;
             // 드래그 중인 노드 자신은 커서와 1:1로 붙어야 하므로 transition을 걸지 않는다.
-            // 그 외 노드는 레이아웃이 재계산될 때 위치가 즉시 바뀌면서 뚝뚝 끊겨 보이지 않도록
-            // transform에 transition을 걸어 매끄럽게 이동시킨다.
-            const isDragging = dragRef.current?.id === note.id;
+            const isDragging = dragRef.current?.id === keyword.id;
             return (
               <g
-                key={note.id}
+                key={keyword.id}
                 transform={`translate(${node.x}, ${node.y})`}
                 style={{ transition: isDragging ? 'none' : 'transform 200ms ease-out' }}
-                onPointerDown={handlePointerDown(note.id)}
-                onPointerUp={endDrag(note.id)}
-                onMouseEnter={() => setHoveredId(note.id)}
-                onMouseLeave={() => setHoveredId((id) => (id === note.id ? null : id))}
+                onPointerDown={handlePointerDown(keyword.id)}
+                onPointerUp={endDrag(keyword.id)}
+                onMouseEnter={() => setHoveredId(keyword.id)}
+                onMouseLeave={() => setHoveredId((id) => (id === keyword.id ? null : id))}
                 className="cursor-pointer"
               >
                 <circle
@@ -462,80 +468,63 @@ export default function DailyNoteMindMapView({ entries: notes, notesById, ensure
                   fill={isSelected ? '#1e3a8a' : '#334155'}
                   fontWeight={isSelected ? 'bold' : 'normal'}
                 >
-                  {truncate(noteLabel(note))}
+                  {truncate(`#${keyword.label}`)}
                 </text>
               </g>
             );
           })}
-          {hoveredNode && hoveredKeywords.length > 0 && (
-            <foreignObject x={tooltipX} y={tooltipY} width={TOOLTIP_W} height={90} style={{ pointerEvents: 'none', overflow: 'visible' }}>
-              <div className="flex flex-wrap gap-1 rounded-md bg-gray-900/70 px-2 py-1.5 text-[10px] leading-tight text-white shadow-lg">
-                {hoveredKeywords.map((k) => (
-                  <span key={k} className="whitespace-nowrap rounded-full bg-white/20 px-1.5 py-0.5">#{k}</span>
-                ))}
+          {hoveredNode && hoveredKeyword && (
+            <foreignObject x={tooltipX} y={tooltipY} width={TOOLTIP_W} height={40} style={{ pointerEvents: 'none', overflow: 'visible' }}>
+              <div className="rounded-md bg-gray-900/70 px-2 py-1.5 text-[10px] leading-tight text-white shadow-lg">
+                #{hoveredKeyword.label} · 노트 {hoveredKeyword.noteIds.length}개 · 연관 키워드 {degree[hoveredKeyword.id] ?? 0}개
               </div>
             </foreignObject>
           )}
         </svg>
       </div>
-      <p className="text-[11px] text-gray-400 -mt-2">노드를 드래그해 옮기거나 클릭해 상세 내용을 볼 수 있습니다. 우측 상단 −/+ 로 확대·축소할 수 있습니다.</p>
+      <p className="text-[11px] text-gray-400 -mt-2">
+        키워드가 노드이고, 같은 노트에 함께 붙은 키워드끼리 연결됩니다(함께 쓰인 노트가 많을수록 굵은 선). 키워드를 클릭하면 관련 노트를 볼 수 있습니다.
+      </p>
 
-      {selectedNote && (
-        <div className="p-4 border rounded bg-white">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600">{selectedNote.date}</span>
-              {noteKeywords(selectedNote).map((tag) => (
-                <span key={tag} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">#{tag}</span>
-              ))}
-              {selectedNote.category && (
-                <span className="px-2 py-0.5 rounded bg-green-50 text-green-600">{selectedNote.category}</span>
-              )}
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => onEdit(selectedNote)} className="text-xs text-gray-500 hover:text-blue-600">수정</button>
-              <button
-                onClick={() => {
-                  onDelete(selectedNote.id);
-                  setSelectedId(null);
-                }}
-                className="text-xs text-gray-500 hover:text-red-500"
-              >
-                삭제
-              </button>
-            </div>
+      {selectedKeyword && (
+        <div className="p-4 border rounded bg-white flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="font-semibold text-gray-800">
+              #{selectedKeyword.label}
+              <span className="ml-2 text-xs font-normal text-gray-500">노트 {selectedKeyword.noteIds.length}개</span>
+            </h4>
+            <button onClick={() => setSelectedId(null)} className="text-xs text-gray-500 hover:text-gray-700">닫기</button>
           </div>
-          <h4 className="mt-2 font-semibold text-gray-800">{noteLabel(selectedNote)}</h4>
-          {selectedNote.content && (
-            <div
-              className="mt-2 text-sm text-gray-700 markdown-body"
-              dangerouslySetInnerHTML={{ __html: renderNoteMarkdown(selectedNote.content) }}
-            />
+          {relatedKeywords.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 text-xs">
+              <span className="text-gray-500 mr-1">함께 쓰인 키워드</span>
+              {relatedKeywords.map(({ node, weight }) => (
+                <button
+                  key={node.id}
+                  onClick={() => selectKeyword(node.id)}
+                  className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100"
+                >
+                  #{node.label}{weight > 1 ? ` ×${weight}` : ''}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       )}
 
-      {selectedNote && neighborNotes.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h5 className="text-xs font-semibold text-gray-500">연결된 노트 ({neighborNotes.length})</h5>
-          <div
-            ref={neighborListRef}
-            className="flex flex-col gap-3"
-            style={{
-              maxHeight: neighborsExpanded ? 'none' : NEIGHBOR_COLLAPSED_HEIGHT,
-              overflow: neighborsExpanded ? 'visible' : 'hidden',
-            }}
-          >
-            {neighborNotes.map((note) => (
-              <ConnectedNoteCard key={note.id} note={note} onEdit={onEdit} onDelete={onDelete} />
-            ))}
-          </div>
-          {neighborsOverflowing && (
+      {selectedKeyword && (
+        <div className="flex flex-col gap-3">
+          {shownEntries.map((entry) => (
+            notesById[entry.id]
+              ? <ConnectedNoteCard key={entry.id} note={notesById[entry.id]} onEdit={onEdit} onDelete={onDelete} />
+              : <div key={entry.id} className="p-4 border rounded bg-white text-sm text-gray-400">불러오는 중…</div>
+          ))}
+          {keywordEntries.length > visibleNotes && (
             <button
-              onClick={() => setNeighborsExpanded((v) => !v)}
-              className="mt-1 text-xs text-gray-500 hover:text-blue-600"
+              onClick={() => setVisibleNotes((v) => v + NOTES_STEP)}
+              className="text-xs text-gray-500 hover:text-blue-600"
             >
-              {neighborsExpanded ? '접기 ▲' : `더보기 (총 ${neighborNotes.length}개) ▼`}
+              더 보기 ({keywordEntries.length - visibleNotes}개 남음) ▼
             </button>
           )}
         </div>
